@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>汉字拼音配对消消乐 · 小学语文生字练习</title>
+<style>
+:root{
+  --bg:#FFF7E9; --bg2:#FDEFD8; --panel:#FFFDF7; --line:#F0DFC0;
+  --ink:#5A452C; --ink2:#8A745A; --brand:#FF9E2C; --brand-d:#F07C1E;
+  --hanzi:#FFFDF7; --pinyin:#FFF0D2; --ok:#4FB477; --err:#E9694B;
+  --hell:#E23D28; --hell-bg:#FFEDEA;
+  --r:26px; --shadow:0 6px 0 #EBD8B4, 0 10px 22px rgba(160,120,60,.13);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{
+  font-family:"PingFang SC","Microsoft YaHei","Hiragino Sans GB",system-ui,sans-serif;
+  background:radial-gradient(1200px 600px at 50% -10%,#FFF9EE 0%,var(--bg) 45%,var(--bg2) 100%);
+  color:var(--ink); min-height:100vh; padding:16px 14px 40px;
+}
+body.hell{--brand:#E23D28;--brand-d:#C42D1A;--pinyin:#FFE3DE;--bg:#FFF3F0;--bg2:#FDE6E1;--line:#F2CFC7;--shadow:0 6px 0 #EFC9C0, 0 10px 22px rgba(180,60,40,.15)}
+.wrap{max-width:1080px;margin:0 auto}
+
+.ttsbar{position:fixed;top:0;left:0;right:0;height:6px;background:rgba(0,0,0,.06);
+  z-index:200;display:none;overflow:hidden}
+.ttsbar i{display:block;height:100%;width:0;border-radius:0 99px 99px 0;
+  background:linear-gradient(90deg,var(--brand-d),var(--brand),#FFD166);
+  box-shadow:0 0 10px rgba(255,158,44,.6);transition:width .28s ease}
+.ttsbar.on{display:block}
+
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.brand{display:flex;align-items:center;gap:12px}
+.logo{width:56px;height:56px;border-radius:20px;background:linear-gradient(160deg,#FFC46B,var(--brand));
+  display:grid;place-items:center;font-size:30px;box-shadow:var(--shadow);flex:none}
+h1{font-size:26px;margin:0;letter-spacing:1px}
+.sub{font-size:13px;color:var(--ink2);margin-top:3px}
+.tools{display:flex;gap:10px;flex-wrap:wrap}
+.btn{border:none;cursor:pointer;font-family:inherit;font-size:16px;font-weight:700;color:#fff;
+  background:linear-gradient(180deg,#FFBE5C,var(--brand));padding:12px 20px;border-radius:20px;
+  box-shadow:0 4px 0 var(--brand-d);transition:.12s;white-space:nowrap}
+.btn:active{transform:translateY(3px);box-shadow:0 1px 0 var(--brand-d)}
+.btn.ghost{background:var(--panel);color:var(--brand-d);box-shadow:0 4px 0 var(--line);border:2px solid var(--line)}
+.btn.ghost:active{box-shadow:0 1px 0 var(--line)}
+.btn.small{font-size:14px;padding:9px 14px;border-radius:16px}
+
+.grades{display:flex;gap:9px;flex-wrap:wrap;background:var(--panel);border:2px solid var(--line);
+  padding:10px;border-radius:24px;margin-bottom:14px;align-items:center}
+.gl{font-size:14px;color:var(--ink2);padding:0 6px;font-weight:700}
+.gd{border:2px solid var(--line);background:#fff;color:var(--ink);cursor:pointer;font-family:inherit;
+  font-size:16px;font-weight:700;padding:10px 16px;border-radius:18px;transition:.15s;position:relative}
+.gd:hover{border-color:var(--brand)}
+.gd.on{background:linear-gradient(180deg,#FFBE5C,var(--brand));color:#fff;border-color:var(--brand-d);box-shadow:0 3px 0 var(--brand-d)}
+.gd.devil{color:var(--hell);border-color:#F5C9C1;background:var(--hell-bg)}
+.gd.devil.on{background:linear-gradient(180deg,#F2604A,var(--hell));color:#fff;border-color:#B92A17;box-shadow:0 3px 0 #B92A17}
+.gd .cnt{font-size:11px;opacity:.75;margin-left:4px;font-weight:600}
+
+.panel{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px}
+.stat{background:var(--panel);border:2px solid var(--line);border-radius:22px;padding:12px 10px;text-align:center}
+.stat .k{font-size:12px;color:var(--ink2);font-weight:700}
+.stat .v{font-size:26px;font-weight:800;color:var(--brand-d);line-height:1.25;font-variant-numeric:tabular-nums}
+.bar{height:14px;background:#F3E4C8;border-radius:99px;overflow:hidden;margin-bottom:16px;border:2px solid var(--line)}
+.g1tip{display:none;align-items:center;gap:8px;margin:-4px 0 14px;padding:10px 14px;border-radius:16px;
+  background:linear-gradient(180deg,#FFF7E6,#FFEFD2);border:2px dashed #F0B86E;color:#9A6B2F;
+  font-size:14px;font-weight:600;animation:pop .3s ease}
+.g1tip.show{display:flex}
+.g1tip b{background:#FFD79A;border-radius:8px;padding:1px 7px;color:#7A4E12}
+@keyframes pop{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+.bar i{display:block;height:100%;width:0;border-radius:99px;background:linear-gradient(90deg,#FFD166,var(--brand));transition:width .35s}
+
+.board{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px}
+.card{position:relative;aspect-ratio:1/1;border-radius:var(--r);border:3px solid var(--line);
+  background:var(--hanzi);display:grid;place-items:center;cursor:pointer;user-select:none;
+  box-shadow:var(--shadow);transition:transform .12s,box-shadow .12s,border-color .15s,opacity .3s}
+.card.py{background:var(--pinyin)}
+.card:hover{transform:translateY(-3px)}
+.card:active{transform:translateY(2px)}
+.card .t{font-size:clamp(30px,6.2vw,58px);font-weight:800;line-height:1;
+  font-family:"KaiTi","STKaiti","Kaiti SC","楷体",serif}
+.card.py .t{font-size:clamp(17px,3.4vw,30px);font-weight:700;letter-spacing:.5px;
+  font-family:"Segoe UI","PingFang SC",system-ui,sans-serif;color:var(--brand-d)}
+.card.sel{border-color:var(--brand);background:#FFE9BE;transform:translateY(-4px) scale(1.03);
+  box-shadow:0 0 0 5px rgba(255,158,44,.24),var(--shadow)}
+body.hell .card.sel{background:#FFDDD6;box-shadow:0 0 0 5px rgba(226,61,40,.2),var(--shadow)}
+.card.ok{animation:pop .42s forwards}
+.card.bad{animation:shake .38s;border-color:var(--err)}
+.card.gone{visibility:hidden}
+.card.hole{background:transparent;border:3px dashed #EBD9BB;box-shadow:none;cursor:default;pointer-events:none}
+@keyframes pop{0%{transform:scale(1)}45%{transform:scale(1.16);box-shadow:0 0 0 12px rgba(79,180,119,.28)}100%{transform:scale(0);opacity:0}}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-9px)}40%{transform:translateX(9px)}60%{transform:translateX(-6px)}80%{transform:translateX(6px)}}
+
+.wrongbar{background:var(--panel);border:2px dashed #F0C9A8;border-radius:24px;padding:14px 16px;min-height:66px}
+.wrongbar h3{margin:0 0 8px;font-size:15px;color:var(--err);display:flex;align-items:center;gap:8px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{background:#FFF0EA;border:2px solid #F8D3C4;border-radius:16px;padding:6px 12px;display:flex;
+  align-items:baseline;gap:6px;font-size:15px}
+.chip b{font-size:22px;font-family:"KaiTi","STKaiti","楷体",serif}
+.chip s{color:var(--ink2);font-size:13px;text-decoration:none}
+.empty{color:#B9A489;font-size:14px;padding:4px 2px}
+
+.mask{position:fixed;inset:0;background:rgba(70,50,25,.42);display:none;place-items:center;z-index:60;padding:20px;backdrop-filter:blur(2px)}
+.mask.show{display:grid}
+.modal{background:var(--panel);border-radius:32px;padding:28px 26px;max-width:520px;width:100%;
+  box-shadow:0 20px 50px rgba(120,80,30,.3);border:3px solid var(--line);animation:in .28s;max-height:86vh;overflow:auto}
+@keyframes in{from{transform:scale(.86) translateY(18px);opacity:0}to{transform:none;opacity:1}}
+.modal h2{margin:0 0 6px;font-size:22px;text-align:center}
+.big{font-size:84px;text-align:center;line-height:1.1;font-family:"KaiTi","STKaiti","楷体",serif;font-weight:800;color:var(--brand-d)}
+.bigpy{text-align:center;font-size:26px;color:var(--ink2);letter-spacing:1px;margin-top:2px}
+.word{text-align:center;font-size:34px;font-weight:800;margin:14px 0 6px;font-family:"KaiTi","STKaiti","楷体",serif}
+.tip{text-align:center;color:var(--ink2);font-size:14px}
+.mbtns{display:flex;gap:10px;justify-content:center;margin-top:20px;flex-wrap:wrap}
+.autorow{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:14px;margin-bottom:-4px;font-size:13px;color:var(--ink2);font-weight:600;cursor:pointer;user-select:none}
+.autorow input{width:16px;height:16px;accent-color:var(--brand);cursor:pointer;margin:0}
+
+.toast{position:fixed;left:50%;top:22%;transform:translateX(-50%) scale(.9);z-index:80;pointer-events:none;
+  background:#fff;border:3px solid #F6C7B6;border-radius:26px;padding:16px 24px;text-align:center;
+  box-shadow:0 14px 34px rgba(150,70,40,.24);opacity:0;transition:.18s}
+.toast.show{opacity:1;transform:translateX(-50%) scale(1)}
+.toast .th{font-size:20px;font-weight:800;color:var(--err)}
+.toast .ts{font-size:14px;color:var(--ink2);margin-top:4px}
+
+.wlist{display:grid;grid-template-columns:repeat(auto-fill,minmax(126px,1fr));gap:10px;margin:14px 0}
+.witem{background:#FFF6EC;border:2px solid var(--line);border-radius:18px;padding:10px;text-align:center;position:relative}
+.witem .c{font-size:30px;font-family:"KaiTi","STKaiti","楷体",serif;font-weight:800}
+.witem .p{font-size:13px;color:var(--brand-d)}
+.witem .w{font-size:12px;color:var(--ink2);margin-top:2px}
+.witem .n{position:absolute;top:-8px;right:-6px;background:var(--err);color:#fff;font-size:11px;
+  border-radius:99px;padding:2px 7px;font-weight:700}
+.witem .x{position:absolute;top:-8px;left:-6px;background:#fff;border:2px solid var(--line);color:var(--ink2);
+  width:22px;height:22px;border-radius:99px;font-size:12px;line-height:18px;cursor:pointer}
+canvas#fw{position:fixed;inset:0;pointer-events:none;z-index:70;display:none}
+.foot{text-align:center;color:#BCA88C;font-size:12px;margin-top:22px;line-height:1.8}
+.sw{display:flex;align-items:center;gap:6px;font-size:14px;color:var(--ink2);font-weight:700;cursor:pointer;user-select:none}
+@media(max-width:640px){
+  body{padding:12px 10px 30px}
+  h1{font-size:20px} .logo{width:46px;height:46px;font-size:24px;border-radius:16px}
+  .panel{grid-template-columns:repeat(3,1fr)} .stat .v{font-size:21px}
+  .board{gap:9px} .card{border-radius:20px;border-width:2px}
+  .btn{font-size:14px;padding:10px 14px} .gd{padding:8px 12px;font-size:15px}
+  .big{font-size:66px} .word{font-size:28px}
+}
+</style>
+</head>
+<body>
+<div class="ttsbar" id="ttsBar"><i id="ttsBarI"></i></div>
+
+<div class="wrap">
+
+  <div class="top">
+    <div class="brand">
+      <div class="logo">字</div>
+      <div>
+        <h1>汉字拼音配对消消乐</h1>
+        <div class="sub">人教部编版 1—6 年级生字表 · 点字配音，配对消除</div>
+      </div>
+    </div>
+    <div class="tools">
+      <label class="sw"><input type="checkbox" id="spk" checked style="width:18px;height:18px;accent-color:#FF9E2C"> 朗读</label><label class="sw"><input type="checkbox" id="useOnline1"> 在线1</label>
+      <button class="btn ghost small" id="btnVoice" title="重新检测语音">🔊 语音</button>
+      <button class="btn ghost" id="btnBook">📕 错字库</button>
+      <button class="btn ghost" id="btnReset">♻️ 重置</button>
+      <button class="btn" id="btnReplay">🎲 重玩一局</button>
+    </div>
+  </div>
+
+  <div class="grades" id="grades"><span class="gl">选择年级</span></div>
+
+  <div class="panel">
+    <div class="stat"><div class="k">得分</div><div class="v" id="sScore">0</div></div>
+    <div class="stat"><div class="k">进度</div><div class="v" id="sProg">0/8</div></div>
+    <div class="stat"><div class="k">连对</div><div class="v" id="sCombo">0</div></div>
+    <div class="stat"><div class="k">本轮错字</div><div class="v" id="sWrong">0</div></div>
+    <div class="stat"><div class="k">用时</div><div class="v" id="sTime">0"</div></div>
+  </div>
+  <div class="bar"><i id="barI"></i></div>
+
+  <div class="g1tip" id="g1tip">🔊 <span>点字会读</span>：点一下<b>汉字卡片</b>就能听到它的读音（仅一年级）</div>
+
+  <div class="board" id="board"></div>
+
+  <div class="wrongbar">
+    <h3>📌 本轮易错字（实时去重）<span id="wrTitleExtra" style="color:#B9A489;font-weight:400;font-size:12px"></span></h3>
+    <div class="chips" id="wrongChips"><div class="empty">还没有错字，加油保持！</div></div>
+  </div>
+
+  <div class="foot">
+    字库：人教部编版小学语文 1—6 年级写字表（共 2488 字）+ 地狱难度常用字 444 字<br>
+    错题按年级分别保存在本机浏览器，换台设备不互通
+  </div>
+</div>
+
+<!-- 配对成功 -->
+<div class="mask" id="mOk"><div class="modal">
+  <h2 style="color:var(--ok)">🎉 配对成功！</h2>
+  <div class="big" id="okC">春</div>
+  <div class="bigpy" id="okP">chūn</div>
+  <div class="word" id="okW">春天</div>
+  <div class="tip" id="okTip">读一读：这个字念什么？</div>
+  <label class="autorow"><input type="checkbox" id="autoClose"> 朗读完自动关闭</label>
+  <div class="mbtns">
+    <button class="btn ghost small" id="okSpeak">🔊 再听一次</button>
+    <button class="btn" id="okNext">继续 ▶</button>
+  </div>
+</div></div>
+
+<!-- 通关 -->
+<div class="mask" id="mWin"><div class="modal" style="text-align:center">
+  <div style="font-size:60px">🏆</div>
+  <h2>全部配对完成！太棒了！</h2>
+  <div id="winStat" style="font-size:16px;color:var(--ink2);line-height:2;margin:12px 0"></div>
+  <div id="winWrong" style="margin:10px 0"></div>
+  <div class="mbtns">
+    <button class="btn ghost" id="winBook">📕 看错字库</button>
+    <button class="btn" id="winAgain">🎲 再来一局</button>
+  </div>
+</div></div>
+
+<!-- 错字库 -->
+<div class="mask" id="mBook"><div class="modal" style="max-width:720px">
+  <h2 id="bookTitle">📕 错字库</h2>
+  <div class="tip" id="bookTip">这些是你在本年级配对错过的字，开局会优先安排复习</div>
+  <div class="wlist" id="bookList"></div>
+  <div class="mbtns">
+    <button class="btn ghost" id="bookClear" style="color:var(--err);border-color:#F6CFC2">🗑 清空错字库</button>
+    <button class="btn ghost" id="bookPractice">🎯 只练错字</button>
+    <button class="btn" id="bookClose">关闭</button>
+  </div>
+</div></div>
+
+<!-- 语音检测 -->
+<div class="mask" id="mVoice"><div class="modal" style="max-width:420px;text-align:center">
+  <div style="font-size:48px" id="vIcon">⏳</div>
+  <h2 id="vTitle">语音检测中…</h2>
+  <div class="tip" id="vMsg" style="line-height:1.8;font-size:15px;margin:8px 0 4px">正在检测语音功能，请稍候…</div>
+  <div class="mbtns" id="vBtns" style="display:none">
+    <button class="btn ghost" id="vLater">暂不</button>
+    <button class="btn" id="vUseB">🔊 启用在线语音</button>
+  </div>
+  <div class="mbtns" id="vOKBtns" style="display:none;margin-top:16px">
+    <button class="btn" id="vOK">知道了</button>
+  </div>
+</div></div>
+
+<!-- 确认清空 -->
+<div class="mask" id="mAsk"><div class="modal" style="max-width:400px;text-align:center">
+  <div style="font-size:48px">🗑</div>
+  <h2 id="askT">确定要清空吗？</h2>
+  <div class="tip" id="askS">清空后无法恢复哦</div>
+  <div class="mbtns">
+    <button class="btn ghost" id="askNo">取消</button>
+    <button class="btn" id="askYes" style="background:linear-gradient(180deg,#F2806B,#E9694B);box-shadow:0 4px 0 #C9503A">确定清空</button>
+  </div>
+</div></div>
+
+<div class="toast" id="toast"><div class="th" id="toastT">配对错误</div><div class="ts" id="toastS"></div></div>
+<canvas id="fw"></canvas>
+
+<!-- ★ 词库单独提取为外部文件 -->
+<script src="zku-data.js"></script>
+
+<script>
+(function(){
+'use strict';
+const $ = s => document.querySelector(s);
+const GRADES = [
+  {k:'1',n:'一年级'},{k:'2',n:'二年级'},{k:'3',n:'三年级'},
+  {k:'4',n:'四年级'},{k:'5',n:'五年级'},{k:'6',n:'六年级'},
+  {k:'hell',n:'😈 地狱难度',devil:true}
+];
+const PAIR_N = 8;
+const LS = {
+  wrong: g => 'hzpy_wrong_v2_' + g,
+  used:  g => 'hzpy_used_v2_' + g,
+  grade: 'hzpy_grade_v2',
+  autoClose: 'hzpy_autoclose_v1'
+};
+const S = {
+  grade: localStorage.getItem(LS.grade) || '1',
+  pairs: [], cards: [], sel: [], matched: 0,
+  score: 0, combo: 0, best: 0, wrong: [], lock: false,
+  t0: 0, timer: null, onlyWrong: false,
+  winShown: false
+};
+let lastWrongPicks = [];   /* ★ 修复：会话内记录上一次错字库挑过的字，防止连续几局重复 */
+
+/* ---------- 存储 ---------- */
+function readJSON(k, d){ try{ return JSON.parse(localStorage.getItem(k)) || d; }catch(e){ return d; } }
+function getBook(g){ return readJSON(LS.wrong(g||S.grade), {}); }
+function saveBook(b, g){ localStorage.setItem(LS.wrong(g||S.grade), JSON.stringify(b)); }
+function getUsed(g){ return readJSON(LS.used(g||S.grade), []); }
+function saveUsed(a, g){ localStorage.setItem(LS.used(g||S.grade), JSON.stringify(a.slice(-4000))); }
+
+/* ---------- 出题 ---------- */
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.random()*(i+1)|0; [a[i],a[j]]=[a[j],a[i]]; } return a; }
+
+function buildRound(){
+  const pool = (ZKU[S.grade] || []).map(x => ({c:x[0], p:x[1], w:x[2]}));
+  const book = getBook();
+  const used = new Set(getUsed());
+  const picked = [], pys = new Set(), chs = new Set();
+  const add = it => {
+    if(!it || chs.has(it.c) || pys.has(it.p)) return false;
+    picked.push(it); chs.add(it.c); pys.add(it.p); return true;
+  };
+
+  /* ★ 修复：错字库随机抽取，排除上局挑过的，避免连续几局都是同几个 */
+  const allWrong = Object.values(book);
+  const wrongQuota = S.onlyWrong ? PAIR_N : Math.min(3, allWrong.length);
+  let candidates = allWrong.filter(r => !lastWrongPicks.includes(r.c));
+  if(candidates.length === 0 && allWrong.length) candidates = allWrong.slice();
+  shuffle(candidates);
+  const wp = [];
+  for(const r of candidates){
+    if(wp.length >= wrongQuota) break;
+    if(add({c:r.c, p:r.p, w:r.w})) wp.push(r.c);
+  }
+  if(wp.length < wrongQuota){
+    for(const r of allWrong){
+      if(wp.length >= wrongQuota) break;
+      if(add({c:r.c, p:r.p, w:r.w})) wp.push(r.c);
+    }
+  }
+  lastWrongPicks = wp;
+
+  const fresh = shuffle(pool.filter(x => !used.has(x.c)));
+  for(const x of fresh){ if(picked.length >= PAIR_N) break; add(x); }
+  if(picked.length < PAIR_N){
+    saveUsed([]);
+    for(const x of shuffle(pool.slice())){ if(picked.length >= PAIR_N) break; add(x); }
+  }
+  S.onlyWrong = false;
+  return picked;
+}
+
+function newGame(keepScore){
+  S.pairs = buildRound();
+  S.cards = [];
+  S.pairs.forEach((p, i) => {
+    S.cards.push({id:'h'+i, gi:i, type:'h', txt:p.c, done:false});
+    S.cards.push({id:'p'+i, gi:i, type:'p', txt:p.p, done:false});
+  });
+  shuffle(S.cards);
+  S.sel = []; S.matched = 0; S.lock = false; S.wrong = [];
+  if(!keepScore){ S.score = 0; }
+  S.combo = 0;
+  S.winShown = false;
+  S.t0 = Date.now();
+  clearInterval(S.timer);
+  S.timer = setInterval(tick, 500);
+  const used = getUsed();
+  S.pairs.forEach(p => { if(used.indexOf(p.c) < 0) used.push(p.c); });
+  saveUsed(used);
+  render(); renderWrong(); updateHUD();
+}
+
+/* ---------- 渲染 ---------- */
+function render(){
+  const b = $('#board'); b.innerHTML = '';
+  S.cards.forEach(c => {
+    const d = document.createElement('div');
+    d.className = 'card' + (c.type==='p'?' py':'') + (c.done?' hole':'');
+    d.dataset.id = c.id;
+    d.innerHTML = c.done ? '' : '<div class="t">' + c.txt + '</div>';
+    d.addEventListener('click', () => onTap(c.id));
+    b.appendChild(d);
+  });
+}
+function el(id){ return document.querySelector('.card[data-id="'+id+'"]'); }
+
+function updateHUD(){
+  $('#sScore').textContent = S.score;
+  $('#sProg').textContent = S.matched + '/' + PAIR_N;
+  $('#sCombo').textContent = S.combo;
+  $('#sWrong').textContent = S.wrong.length;
+  $('#barI').style.width = (S.matched / PAIR_N * 100) + '%';
+}
+function tick(){
+  const s = Math.floor((Date.now() - S.t0)/1000);
+  $('#sTime').textContent = s < 60 ? s + '"' : Math.floor(s/60) + "'" + (s%60) + '"';
+}
+
+/* ---------- 交互 ---------- */
+function onTap(id){
+  if(S.lock) return;
+  const c = S.cards.find(x => x.id === id);
+  if(!c || c.done) return;
+  const i = S.sel.indexOf(id);
+  if(i >= 0){ S.sel.splice(i,1); el(id).classList.remove('sel'); return; }
+  if(S.sel.length >= 2) return;
+  S.sel.push(id); el(id).classList.add('sel');
+  if(S.grade === '1' && c.type === 'h') speak(c.txt);
+  if(S.sel.length === 2) judge();
+}
+
+function judge(){
+  const [a, b] = S.sel.map(id => S.cards.find(x => x.id === id));
+  const same = a.gi === b.gi && a.type !== b.type;
+  if(same){
+    S.lock = true;
+    const p = S.pairs[a.gi];
+    [a,b].forEach(c => { c.done = true; el(c.id).classList.remove('sel'); el(c.id).classList.add('ok'); });
+    setTimeout(() => {
+      [a,b].forEach(c => { const e = el(c.id); e.classList.remove('ok'); e.classList.add('hole'); e.innerHTML=''; });
+    }, 420);
+    S.sel = []; S.matched++; S.combo++;
+    S.best = Math.max(S.best, S.combo);
+    S.score += 10 + (S.combo - 1) * 2;
+    updateHUD();
+    showOk(p);
+  }else{
+    S.lock = true;
+    setTimeout(() => { S.lock = false; }, 380);   /* 原 160 -> 380，等抖动动画跑完再解锁 */
+    [a,b].forEach(c => { const e = el(c.id); e.classList.add('bad'); setTimeout(()=>{ e.classList.remove('bad','sel'); }, 380); });
+    S.sel = [];
+    S.combo = 0;
+    S.score = Math.max(0, S.score - 4);
+    const hc = (a.type==='h' ? a : (b.type==='h' ? b : a));
+    const p = S.pairs[hc.gi];
+    addWrong(p);
+    updateHUD();
+    toast('配对错啦', '「' + p.c + '」的读音是 ' + p.p + '，已存入错字库');
+  }
+}
+
+function addWrong(p){
+  if(!S.wrong.some(x => x.c === p.c)) S.wrong.push(p);
+  const bk = getBook();
+  const o = bk[p.c] || {c:p.c, p:p.p, w:p.w, n:0, t:Date.now()};
+  o.n++; o.t = Date.now(); o.p = p.p; o.w = p.w;
+  bk[p.c] = o; saveBook(bk);
+  renderWrong(); renderGrades();
+}
+function renderWrong(){
+  const box = $('#wrongChips');
+  if(!S.wrong.length){ box.innerHTML = '<div class="empty">还没有错字，加油保持！</div>';
+    $('#wrTitleExtra').textContent = ''; return; }
+  box.innerHTML = S.wrong.map(x => '<div class="chip"><b>'+x.c+'</b><s>'+x.p+'</s></div>').join('');
+  $('#wrTitleExtra').textContent = '　共 ' + S.wrong.length + ' 个';
+}
+
+/* ---------- 弹窗 ---------- */
+function showOk(p){
+  $('#okC').textContent = p.c; $('#okP').textContent = p.p; $('#okW').textContent = p.w;
+  $('#okTip').textContent = '组词：' + p.w + '　（' + p.p + '）';
+  $('#mOk').classList.add('show');
+  speak(p.c + '，' + p.w, () => {
+    if($('#autoClose').checked && $('#mOk').classList.contains('show')){
+      closeOk();
+    }
+  });
+}
+function closeOk(){
+  if(!$('#mOk').classList.contains('show')) return;
+  $('#mOk').classList.remove('show');
+  S.lock = false;
+  if(S.matched >= PAIR_N && !S.winShown) setTimeout(win, 260);
+}
+let toastTimer = null;
+function toast(t, s){
+  $('#toastT').textContent = t; $('#toastS').textContent = s;
+  $('#toast').classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => $('#toast').classList.remove('show'), 1400);
+}
+
+function win(){
+  if(S.winShown) return;
+  S.winShown = true;
+  clearInterval(S.timer);
+  const sec = Math.floor((Date.now() - S.t0)/1000);
+  $('#winStat').innerHTML = '得分 <b style="color:var(--brand-d);font-size:22px">' + S.score + '</b>　用时 <b>' +
+    sec + ' 秒</b>　最高连对 <b>' + S.best + '</b>';
+  $('#winWrong').innerHTML = S.wrong.length
+    ? '<div style="font-size:14px;color:var(--err)">本轮错字：' + S.wrong.map(x=>x.c+'('+x.p+')').join('、') + '</div>'
+    : '<div style="font-size:15px;color:var(--ok)">全对！一个都没错，厉害！</div>';
+  $('#mWin').classList.add('show');
+  speak(S.wrong.length ? '全部完成，真棒' : '太厉害了，全部答对');
+  fireworks();
+}
+
+/* ---------- 错字库 ---------- */
+function openBook(){
+  const bk = getBook();
+  const arr = Object.values(bk).sort((a,b)=> b.n - a.n || b.t - a.t);
+  const gname = (GRADES.find(g=>g.k===S.grade)||{}).n;
+  $('#bookTitle').textContent = '📕 ' + gname + ' 错字库（' + arr.length + ' 字）';
+  $('#bookTip').textContent = '这些是你在本年级配对错过的字，开局会优先安排复习';
+  $('#bookList').innerHTML = arr.length
+    ? arr.map(x => '<div class="witem" data-c="'+x.c+'"><span class="x" title="移除">×</span><span class="n">'+x.n+'次</span>'+
+        '<div class="c">'+x.c+'</div><div class="p">'+x.p+'</div><div class="w">'+x.w+'</div></div>').join('')
+    : '<div class="empty" style="grid-column:1/-1;text-align:center;padding:24px">这个年级还没有错字，继续保持！</div>';
+  $('#bookList').querySelectorAll('.x').forEach(x => x.addEventListener('click', e => {
+    const c = e.target.closest('.witem').dataset.c;
+    const b = getBook(); delete b[c]; saveBook(b); openBook();
+  }));
+  $('#bookPractice').style.display = arr.length ? '' : 'none';
+  $('#mBook').classList.add('show');
+}
+
+/* ============== 语音系统 ============== */
+let ttsBarTimer = null;
+let ttsBarHideTimer = null;
+function showTTSBar(){
+  const bar = $('#ttsBar'), fill = $('#ttsBarI');
+  clearTimeout(ttsBarTimer);
+  clearTimeout(ttsBarHideTimer);
+  bar.classList.add('on');
+  fill.style.width = '5%';
+  let p = 5;
+  const step = () => {
+    p = Math.min(p + Math.random()*10 + 5, 92);
+    fill.style.width = p + '%';
+    if(p < 92) ttsBarTimer = setTimeout(step, 110);
+  };
+  ttsBarTimer = setTimeout(step, 110);
+}
+function fullTTSBar(){
+  const bar = $('#ttsBar'), fill = $('#ttsBarI');
+  clearTimeout(ttsBarTimer);
+  clearTimeout(ttsBarHideTimer);
+  fill.style.width = '100%';
+  ttsBarHideTimer = setTimeout(() => {
+    bar.classList.remove('on');
+    fill.style.width = '0%';
+  }, 320);
+}
+
+const VOICE_LS = 'hzpy_voice_v3';
+const LS_ONLINE1 = 'hzpy_online1_v1';
+const TTS_WORKER = 'https://game.api.leci04.top';   // 在线1：Worker TTS 地址
+let online1Enabled = localStorage.getItem(LS_ONLINE1) === '1';
+let voice = null;
+let voiceStatus = localStorage.getItem(VOICE_LS) || 'unknown';
+let currentAudio = null;
+
+function initVoice(){
+  if(!window.speechSynthesis){
+    if(voiceStatus === 'unknown') detectResult('fail_noapi');
+    return;
+  }
+  const pick = () => {
+    const vs = speechSynthesis.getVoices() || [];
+    voice = vs.find(v => /zh[-_]CN|Chinese|中文|普通话/i.test(v.lang + v.name)) ||
+            vs.find(v => /^zh/i.test(v.lang)) || null;
+    return !!voice;
+  };
+  pick();
+  speechSynthesis.onvoiceschanged = pick;
+  setTimeout(pick, 800);
+  setTimeout(pick, 2000);
+
+  if(voiceStatus === 'ok' || voiceStatus === 'fail') return;
+
+  $('#mVoice').classList.add('show');
+  $('#vIcon').textContent = '⏳';
+  $('#vTitle').textContent = '语音检测中…';
+  $('#vMsg').textContent = '正在检测语音功能，请稍候…';
+  $('#vBtns').style.display = 'none';
+  $('#vOKBtns').style.display = 'none';
+
+  let waited = 0;
+  const tryTest = () => {
+    if(!voice && waited < 1500){ waited += 300; setTimeout(tryTest, 300); return; }
+    doVoiceTest();
+  };
+  setTimeout(tryTest, 600);
+}
+
+function doVoiceTest(){
+  let triggered = false;
+  try{
+    const u = new SpeechSynthesisUtterance('字');
+    u.lang = 'zh-CN';
+    u.rate = 0.9; u.volume = 1;
+    if(voice) u.voice = voice;
+    u.onstart = () => { triggered = true; speechSynthesis.cancel(); detectResult('ok'); };
+    u.onerror = () => { if(!triggered) detectResult(voice ? 'fail' : 'fail_no_voice'); };
+    setTimeout(() => { if(!triggered) detectResult(voice ? 'fail' : 'fail_no_voice'); }, 1600);
+    speechSynthesis.speak(u);
+  }catch(e){
+    detectResult('fail_exception');
+  }
+}
+
+function detectResult(status){
+  const map = {
+    ok:             {icon:'✅', title:'语音功能正常',  msg:'您的设备可以正常朗读汉字拼音，放心使用吧！',                       showOK:true,  save:'ok'},
+    fail:           {icon:'⚠️', title:'语音可能无法使用', msg:'检测到您的设备可能无法朗读中文。建议启用在线语音，联网即可使用。',  showOK:false, save:'fail'},
+    fail_no_voice:  {icon:'⚠️', title:'未找到中文语音引擎',msg:'您的设备可能没有安装中文语音引擎（华为常见）。建议启用在线语音。',  showOK:false, save:'fail'},
+    fail_noapi:     {icon:'❌', title:'不支持系统语音',   msg:'当前浏览器不支持系统语音朗读。建议启用在线语音功能。',             showOK:false, save:'fail'},
+    fail_exception: {icon:'❌', title:'检测异常',         msg:'检测语音功能时发生异常。建议启用在线语音功能。',                    showOK:false, save:'fail'}
+  };
+  const r = map[status]; if(!r) return;
+  localStorage.setItem(VOICE_LS, r.save);
+  voiceStatus = r.save;
+  $('#mVoice').classList.add('show');
+  $('#vIcon').textContent = r.icon;
+  $('#vTitle').textContent = r.title;
+  $('#vMsg').textContent = r.msg;
+  $('#vBtns').style.display = r.showOK ? 'none' : '';
+  $('#vOKBtns').style.display = r.showOK ? '' : 'none';
+}
+
+function stopCurrentAudio(){
+  if(currentAudio){
+    currentAudio.pause();
+    currentAudio.src = '';
+    currentAudio = null;
+  }
+}
+
+/* ---------- 本地语音（优先）---------- */
+function speakLocal(txt, onEnd){
+  try{
+    stopCurrentAudio();
+    if(speechSynthesis.speaking) speechSynthesis.cancel();
+    let fb = false;
+    showTTSBar();
+    setTimeout(() => {
+      let started = false;
+      const u = new SpeechSynthesisUtterance(txt);
+      u.lang = 'zh-CN'; u.rate = .8; u.pitch = 1.1;
+      if(voice) u.voice = voice;
+      u.onstart = () => { started = true; };
+      const fail = () => {
+        if(fb) return; fb = true; fullTTSBar();
+        speechSynthesis.cancel();
+        if($('#useOnline1').checked){ speakWorker(txt, onEnd); }
+        else { toast('🔇 本地朗读失败', '可在设置开启「在线1」'); onEnd && onEnd(); }
+      };
+      if(onEnd){
+        u.onend = () => { if(!fb){ fb = true; fullTTSBar(); onEnd(); } };
+        u.onerror = fail;
+      } else {
+        u.onend = () => { if(!fb){ fb = true; fullTTSBar(); } };
+        u.onerror = fail;
+      }
+      speechSynthesis.speak(u);
+      setTimeout(() => { if(!started && !fb) fail(); }, 3000);
+    }, 50);
+  }catch(e){
+    if($('#useOnline1').checked){ speakWorker(txt, onEnd); }
+    else { toast('🔇 本地朗读失败', '可在设置开启「在线1」'); onEnd && onEnd(); }
+  }
+}
+
+/* ---------- 在线1：Worker TTS ---------- */
+function speakWorker(txt, onEnd){
+  if(!txt){ onEnd && onEnd(); return; }
+  stopCurrentAudio();
+  showTTSBar();
+  fetch(TTS_WORKER + '/v1/audio/speech', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ input: txt, voice: 'zh-CN-XiaoxiaoNeural', speed: 1.0, pitch: '0', style: 'general' })
+  })
+  .then(res => { if(!res.ok) throw new Error('Worker 返回错误'); return res.blob(); })
+  .then(blob => {
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    audio.onended = () => { fullTTSBar(); URL.revokeObjectURL(url); onEnd && onEnd(); };
+    audio.onerror = () => { fullTTSBar(); URL.revokeObjectURL(url); toast('⚠️ 朗读失败', '在线语音不可用'); onEnd && onEnd(); };
+    currentAudio = audio;
+    audio.play().catch(err => { fullTTSBar(); URL.revokeObjectURL(url); toast('⚠️ 播放失败', err.message); onEnd && onEnd(); });
+  })
+  .catch(err => { fullTTSBar(); toast('⚠️ 请求失败', '请检查网络连接'); onEnd && onEnd(); });
+}
+
+/* ---------- 总入口：本地 → 在线1 ---------- */
+function speak(txt, onEnd){
+  if(!$('#spk').checked || !txt){ onEnd && onEnd(); return; }
+  const canLocal = window.speechSynthesis && (voiceStatus === 'ok' || !!voice);
+  if(canLocal){
+    speakLocal(txt, onEnd);
+    return;
+  }
+  /* 本地不可用：直接走在线1（Worker） */
+  if($('#useOnline1').checked){
+    speakWorker(txt, onEnd);
+  } else {
+    toast('🔇 朗读不可用', '可在设置开启「在线1」');
+    onEnd && onEnd();
+  }
+}
+
+/* ---------- 烟花 ---------- */
+let fwRaf = null;
+function fireworks(){
+  if(fwRaf) cancelAnimationFrame(fwRaf);
+  const cv = $('#fw'), ctx = cv.getContext('2d');
+  cv.style.display = 'block';
+  const dpr = Math.min(devicePixelRatio || 1, 2);
+  cv.width = innerWidth * dpr; cv.height = innerHeight * dpr;
+  cv.style.width = innerWidth + 'px'; cv.style.height = innerHeight + 'px';
+  ctx.scale(dpr, dpr);
+  const COL = ['#FF9E2C','#FF5F6D','#FFD166','#4FB477','#5AA9E6','#B983FF','#FF8FAB'];
+  let ps = [], t = 0;
+  function burst(x, y){
+    const col = COL[Math.random()*COL.length|0], n = 46 + Math.random()*26;
+    for(let i=0;i<n;i++){
+      const a = Math.PI*2*i/n + Math.random()*.3, sp = 2 + Math.random()*4.6;
+      ps.push({x, y, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp, life:1,
+        c: Math.random()<.25 ? COL[Math.random()*COL.length|0] : col, r: 1.6+Math.random()*2.4});
+    }
+  }
+  for(let i=0;i<3;i++) setTimeout(()=>burst(innerWidth*(.2+Math.random()*.6), innerHeight*(.2+Math.random()*.4)), i*180);
+  const iv = setInterval(()=>burst(innerWidth*(.15+Math.random()*.7), innerHeight*(.15+Math.random()*.45)), 480);
+  (function loop(){
+    t++;
+    ctx.clearRect(0,0,innerWidth,innerHeight);
+    ps.forEach(p => {
+      p.x += p.vx; p.y += p.vy; p.vy += .055; p.vx *= .985; p.vy *= .985; p.life -= .012;
+      if(p.life > 0){
+        ctx.globalAlpha = Math.max(p.life, 0);
+        ctx.fillStyle = p.c;
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 7); ctx.fill();
+      }
+    });
+    ps = ps.filter(p => p.life > 0);
+    fwRaf = requestAnimationFrame(loop);
+    if(t > 460){ cancelAnimationFrame(fwRaf); clearInterval(iv); fwRaf = null; ctx.clearRect(0,0,innerWidth,innerHeight); cv.style.display='none'; }
+  })();
+}
+
+/* ---------- 年级切换 ---------- */
+function renderGrades(){
+  const box = $('#grades');
+  box.querySelectorAll('.gd').forEach(e => e.remove());
+  GRADES.forEach(g => {
+    const b = document.createElement('button');
+    b.className = 'gd' + (g.devil?' devil':'') + (g.k===S.grade?' on':'');
+    const n = Object.keys(getBook(g.k)).length;
+    b.innerHTML = g.n + (n ? '<span class="cnt">错'+n+'</span>' : '');
+    b.addEventListener('click', () => {
+      if(S.grade === g.k) return;
+      S.grade = g.k; localStorage.setItem(LS.grade, g.k);
+      document.body.classList.toggle('hell', g.k === 'hell');
+      renderGrades(); newGame(false);
+    });
+    box.appendChild(b);
+  });
+  document.body.classList.toggle('hell', S.grade === 'hell');
+  $('#g1tip').classList.toggle('show', S.grade === '1');
+}
+
+/* ---------- 事件 ---------- */
+$('#btnReplay').addEventListener('click', () => newGame(true));
+$('#btnReset').addEventListener('click', () => { S.best = 0; newGame(false); toast('已重置','分数清零，重新开始'); });
+$('#btnBook').addEventListener('click', openBook);
+$('#btnVoice').addEventListener('click', () => {
+  localStorage.removeItem(VOICE_LS);
+  voiceStatus = 'unknown';
+  voice = null;
+  initVoice();
+});
+$('#bookClose').addEventListener('click', () => $('#mBook').classList.remove('show'));
+$('#bookPractice').addEventListener('click', () => {
+  $('#mBook').classList.remove('show'); S.onlyWrong = true; newGame(false);
+  toast('错字复习模式','本局全部来自错字库');
+});
+$('#bookClear').addEventListener('click', () => {
+  const g = (GRADES.find(x=>x.k===S.grade)||{}).n;
+  $('#askT').textContent = '清空「' + g + '」错字库？';
+  $('#askS').textContent = '共 ' + Object.keys(getBook()).length + ' 个字，清空后无法恢复';
+  $('#mAsk').classList.add('show');
+});
+$('#askNo').addEventListener('click', () => $('#mAsk').classList.remove('show'));
+$('#askYes').addEventListener('click', () => {
+  saveBook({}); $('#mAsk').classList.remove('show'); openBook(); renderGrades();
+  toast('已清空','错字库空空如也');
+});
+$('#okNext').addEventListener('click', closeOk);
+$('#okSpeak').addEventListener('click', () => {
+  speak($('#okC').textContent + '，' + $('#okW').textContent, () => {
+    if($('#autoClose').checked) closeOk();
+  });
+});
+$('#mOk').addEventListener('click', e => { if(e.target.id === 'mOk') closeOk(); });
+$('#autoClose').addEventListener('change', () => {
+  localStorage.setItem(LS.autoClose, $('#autoClose').checked ? '1' : '0');
+});
+$('#autoClose').checked = localStorage.getItem(LS.autoClose) === '1';
+$('#useOnline1').checked = online1Enabled;
+$('#useOnline1').addEventListener('change', () => {
+  online1Enabled = $('#useOnline1').checked;
+  localStorage.setItem(LS_ONLINE1, online1Enabled ? '1' : '0');
+});
+$('#winAgain').addEventListener('click', () => { $('#mWin').classList.remove('show'); renderGrades(); newGame(true); });
+$('#winBook').addEventListener('click', () => { $('#mWin').classList.remove('show'); renderGrades(); openBook(); });
+$('#mBook').addEventListener('click', e => { if(e.target.id === 'mBook') $('#mBook').classList.remove('show'); });
+$('#vOK').addEventListener('click', () => $('#mVoice').classList.remove('show'));
+$('#vUseB').addEventListener('click', () => {
+  $('#useOnline1').checked = true;
+  online1Enabled = true;
+  localStorage.setItem(LS_ONLINE1, '1');
+  $('#mVoice').classList.remove('show');
+  toast('已启用在线1', '在线语音已开启，可开始朗读');
+});
+$('#vLater').addEventListener('click', () => {
+  $('#mVoice').classList.remove('show');
+});
+document.addEventListener('keydown', e => { if(e.key === 'Escape') document.querySelectorAll('.mask.show').forEach(m => m.classList.remove('show')); });
+
+initVoice(); renderGrades(); newGame(false);
+})();
+</script>
+</body>
+</html>
