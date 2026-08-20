@@ -650,8 +650,8 @@ function speakLocal(txt, onEnd){
 }
 
 /* ---------- 在线1：直连 Edge TTS Worker（不依赖 Pages Functions）---------- */
-/* ↓↓↓ 改成你的 Worker 地址（带 https://，不要结尾斜杠） ↓↓↓ */
-const TTS_WORKER_URL = 'https://api-tts.3048876273.workers.dev';
+/* ↓↓↓ 改成你的 Worker 自定义域名（必须国内可访问，不要 *.workers.dev，它在中国被墙） ↓↓↓ */
+const TTS_WORKER_URL = 'https://tts.leci04.top';
 /* 与 Worker 端 GAME_TOKEN 保持一致（仅防君子，写在公开 JS 里） */
 const TTS_GAME_TOKEN = 'lec1-TTS-k3y-8x';
 const ttsCache = new Map();
