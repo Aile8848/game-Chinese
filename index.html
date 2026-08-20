@@ -649,7 +649,11 @@ function speakLocal(txt, onEnd){
   }
 }
 
-/* ---------- 在线1：通过 Pages Function 代理（安全，前端无密钥）---------- */
+/* ---------- 在线1：直连 Edge TTS Worker（不依赖 Pages Functions）---------- */
+/* ↓↓↓ 改成你的 Worker 地址（带 https://，不要结尾斜杠） ↓↓↓ */
+const TTS_WORKER_URL = 'https://api-tts.3048876273.workers.dev';
+/* 与 Worker 端 GAME_TOKEN 保持一致（仅防君子，写在公开 JS 里） */
+const TTS_GAME_TOKEN = 'lec1-TTS-k3y-8x';
 const ttsCache = new Map();
 
 function speakWorker(txt, onEnd){
@@ -672,9 +676,9 @@ function speakWorker(txt, onEnd){
 
   stopCurrentAudio();
   showTTSBar();
-  fetch('/api/tts', {
+  fetch(TTS_WORKER_URL + '/v1/audio/speech', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'X-Game-Key': TTS_GAME_TOKEN },
     body: JSON.stringify({ input: txt, voice: 'zh-CN-XiaoxiaoNeural', speed: 1.0, pitch: '0', style: 'general' })
   })
   .then(res => {
