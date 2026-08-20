@@ -255,7 +255,7 @@ canvas#fw{position:fixed;inset:0;pointer-events:none;z-index:70;display:none}
 <div class="toast" id="toast"><div class="th" id="toastT">配对错误</div><div class="ts" id="toastS"></div></div>
 <canvas id="fw"></canvas>
 
-<!-- ★ 词库单独提取为外部文件 -->
+<!-- 词库单独提取为外部文件 -->
 <script src="zku-data.js"></script>
 
 <script>
@@ -270,9 +270,10 @@ const GRADES = [
 const PAIR_N = 8;
 const LS = {
   wrong: g => 'hzpy_wrong_v2_' + g,
-  used:  g => 'hzpy_used_v2_' + g,
+  used:  g => 'hzpy_used_v2_'  + g,
   grade: 'hzpy_grade_v2',
-  autoClose: 'hzpy_autoclose_v1'
+  autoClose: 'hzpy_autoclose_v1',
+  online1: 'hzpy_online1_v1'
 };
 const S = {
   grade: localStorage.getItem(LS.grade) || '1',
@@ -281,7 +282,7 @@ const S = {
   t0: 0, timer: null, onlyWrong: false,
   winShown: false
 };
-let lastWrongPicks = [];   /* ★ 修复：会话内记录上一次错字库挑过的字，防止连续几局重复 */
+let bookSeeded = false;   /* ★ 修复：本会话仅首局从错字库优先出题，之后每局只练新字（下次打开时优先复习） */
 
 /* ---------- 存储 ---------- */
 function readJSON(k, d){ try{ return JSON.parse(localStorage.getItem(k)) || d; }catch(e){ return d; } }
@@ -303,30 +304,28 @@ function buildRound(){
     picked.push(it); chs.add(it.c); pys.add(it.p); return true;
   };
 
-  /* ★ 修复：错字库随机抽取，排除上局挑过的，避免连续几局都是同几个 */
+  /* ★ 修复：错字只在「本会话首局」和「只练错字模式」里出题
+     之后每局只练新字，避免刚错的字在后续多轮反复出现；
+     真正的复习留给「下次打开」（bookSeeded 在刷新页面时重置为 false） */
   const allWrong = Object.values(book);
-  const wrongQuota = S.onlyWrong ? PAIR_N : Math.min(3, allWrong.length);
-  let candidates = allWrong.filter(r => !lastWrongPicks.includes(r.c));
-  if(candidates.length === 0 && allWrong.length) candidates = allWrong.slice();
-  shuffle(candidates);
-  const wp = [];
-  for(const r of candidates){
-    if(wp.length >= wrongQuota) break;
-    if(add({c:r.c, p:r.p, w:r.w})) wp.push(r.c);
-  }
-  if(wp.length < wrongQuota){
-    for(const r of allWrong){
-      if(wp.length >= wrongQuota) break;
-      if(add({c:r.c, p:r.p, w:r.w})) wp.push(r.c);
+  const bookChars = new Set(allWrong.map(r => r.c));   /* 本会话内错字一律不再作为新字出题 */
+  if(S.onlyWrong){
+    /* 只练错字模式：整局全部来自错字库 */
+    for(const r of shuffle(allWrong.slice())){ if(picked.length >= PAIR_N) break; add({c:r.c, p:r.p, w:r.w}); }
+  } else if(!bookSeeded){
+    /* 本会话首局：从错字库优先抽（最多 4 个）作为复习 */
+    if(allWrong.length){
+      const quota = Math.min(4, allWrong.length);
+      for(const r of shuffle(allWrong.slice())){ if(picked.length >= quota) break; add({c:r.c, p:r.p, w:r.w}); }
     }
+    bookSeeded = true;   /* 首局之后不再注入错字库 */
   }
-  lastWrongPicks = wp;
 
-  const fresh = shuffle(pool.filter(x => !used.has(x.c)));
+  const fresh = shuffle(pool.filter(x => !used.has(x.c) && !bookChars.has(x.c)));
   for(const x of fresh){ if(picked.length >= PAIR_N) break; add(x); }
   if(picked.length < PAIR_N){
     saveUsed([]);
-    for(const x of shuffle(pool.slice())){ if(picked.length >= PAIR_N) break; add(x); }
+    for(const y of shuffle(pool.filter(y => !bookChars.has(y.c)))){ if(picked.length >= PAIR_N) break; add(y); }
   }
   S.onlyWrong = false;
   return picked;
@@ -409,7 +408,7 @@ function judge(){
     showOk(p);
   }else{
     S.lock = true;
-    setTimeout(() => { S.lock = false; }, 380);   /* 原 160 -> 380，等抖动动画跑完再解锁 */
+    setTimeout(() => { S.lock = false; }, 380);
     [a,b].forEach(c => { const e = el(c.id); e.classList.add('bad'); setTimeout(()=>{ e.classList.remove('bad','sel'); }, 380); });
     S.sel = [];
     S.combo = 0;
@@ -526,9 +525,7 @@ function fullTTSBar(){
 }
 
 const VOICE_LS = 'hzpy_voice_v3';
-const LS_ONLINE1 = 'hzpy_online1_v1';
-const TTS_WORKER = 'https://game.api.leci04.top';   // 在线1：Worker TTS 地址
-let online1Enabled = localStorage.getItem(LS_ONLINE1) === '1';
+let online1Enabled = localStorage.getItem(LS.online1) === '1';
 let voice = null;
 let voiceStatus = localStorage.getItem(VOICE_LS) || 'unknown';
 let currentAudio = null;
@@ -609,61 +606,95 @@ function stopCurrentAudio(){
   }
 }
 
-/* ---------- 本地语音（优先）---------- */
-function speakLocal(txt, onEnd){
-  try{
-    stopCurrentAudio();
-    if(speechSynthesis.speaking) speechSynthesis.cancel();
-    let fb = false;
-    showTTSBar();
-    setTimeout(() => {
-      let started = false;
-      const u = new SpeechSynthesisUtterance(txt);
-      u.lang = 'zh-CN'; u.rate = .8; u.pitch = 1.1;
-      if(voice) u.voice = voice;
-      u.onstart = () => { started = true; };
-      const fail = () => {
-        if(fb) return; fb = true; fullTTSBar();
-        speechSynthesis.cancel();
-        if($('#useOnline1').checked){ speakWorker(txt, onEnd); }
-        else { toast('🔇 本地朗读失败', '可在设置开启「在线1」'); onEnd && onEnd(); }
-      };
-      if(onEnd){
-        u.onend = () => { if(!fb){ fb = true; fullTTSBar(); onEnd(); } };
-        u.onerror = fail;
-      } else {
-        u.onend = () => { if(!fb){ fb = true; fullTTSBar(); } };
-        u.onerror = fail;
-      }
-      speechSynthesis.speak(u);
-      setTimeout(() => { if(!started && !fb) fail(); }, 3000);
-    }, 50);
-  }catch(e){
-    if($('#useOnline1').checked){ speakWorker(txt, onEnd); }
-    else { toast('🔇 本地朗读失败', '可在设置开启「在线1」'); onEnd && onEnd(); }
+/* ---------- 本地语音（优先，带看门狗与在线兜底）---------- */
+function fallbackToOnline(txt, onEnd){
+  if($('#useOnline1').checked){
+    speakWorker(txt, onEnd);
+  } else {
+    toast('🔇 本地朗读失败', '可在设置开启「在线1」');
+    onEnd && onEnd();
   }
 }
 
-/* ---------- 在线1：Worker TTS ---------- */
+function speakLocal(txt, onEnd){
+  if(!window.speechSynthesis){ fallbackToOnline(txt, onEnd); return; }
+  try{
+    stopCurrentAudio();
+    try { speechSynthesis.cancel(); } catch(e){}
+    showTTSBar();
+    let done = false;          // 是否已结束（成功或已兜底）
+    let started = false;
+    let startTimer = null, endTimer = null;
+    const finish = () => { if(done) return; done = true; clearTimeout(startTimer); clearTimeout(endTimer); fullTTSBar(); onEnd && onEnd(); };
+    const fail = () => {
+      if(done) return; done = true; clearTimeout(startTimer); clearTimeout(endTimer);
+      fullTTSBar();
+      try { speechSynthesis.cancel(); } catch(e){}
+      fallbackToOnline(txt, onEnd);   // 本地不行 → 在线兜底
+    };
+    const u = new SpeechSynthesisUtterance(txt);
+    u.lang = 'zh-CN'; u.rate = .85; u.pitch = 1.05;
+    if(voice) u.voice = voice;
+    u.onstart = () => { started = true; clearTimeout(startTimer); };
+    u.onend   = () => finish();
+    u.onerror = () => { if(!done) fail(); };
+    speechSynthesis.speak(u);
+    // 看门狗①：迟迟不开始（Chrome 常见抽风）→ 在线兜底
+    startTimer = setTimeout(() => { if(!started && !done) fail(); }, 1200);
+    // 看门狗②：开始了却不结束（onend 不触发）→ 在线兜底，避免卡死
+    const est = 2000 + txt.length * 400;
+    endTimer = setTimeout(() => { if(!done) fail(); }, est);
+  }catch(e){
+    fallbackToOnline(txt, onEnd);
+  }
+}
+
+/* ---------- 在线1：通过 Pages Function 代理（安全，前端无密钥）---------- */
+const ttsCache = new Map();
+
 function speakWorker(txt, onEnd){
   if(!txt){ onEnd && onEnd(); return; }
+
+  /* 命中缓存：不请求，直接播放 */
+  const cached = ttsCache.get(txt);
+  if(cached){
+    stopCurrentAudio();
+    showTTSBar();
+    try{
+      const audio = new Audio(cached);
+      audio.onended = () => { fullTTSBar(); onEnd && onEnd(); };
+      audio.onerror = () => { fullTTSBar(); onEnd && onEnd(); };
+      currentAudio = audio;
+      audio.play().catch(() => { fullTTSBar(); onEnd && onEnd(); });
+      return;
+    }catch(e){ /* 缓存失效，走正常流程 */ }
+  }
+
   stopCurrentAudio();
   showTTSBar();
-  fetch(TTS_WORKER + '/v1/audio/speech', {
+  fetch('/api/tts', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ input: txt, voice: 'zh-CN-XiaoxiaoNeural', speed: 1.0, pitch: '0', style: 'general' })
   })
-  .then(res => { if(!res.ok) throw new Error('Worker 返回错误'); return res.blob(); })
+  .then(res => {
+    if(!res.ok) throw new Error('请求失败');
+    return res.blob();
+  })
   .then(blob => {
     const url = URL.createObjectURL(blob);
+    ttsCache.set(txt, url);
+    if(ttsCache.size > 200){
+      ttsCache.forEach(u => URL.revokeObjectURL(u));
+      ttsCache.clear();
+    }
     const audio = new Audio(url);
-    audio.onended = () => { fullTTSBar(); URL.revokeObjectURL(url); onEnd && onEnd(); };
+    audio.onended = () => { fullTTSBar(); onEnd && onEnd(); };
     audio.onerror = () => { fullTTSBar(); URL.revokeObjectURL(url); toast('⚠️ 朗读失败', '在线语音不可用'); onEnd && onEnd(); };
     currentAudio = audio;
     audio.play().catch(err => { fullTTSBar(); URL.revokeObjectURL(url); toast('⚠️ 播放失败', err.message); onEnd && onEnd(); });
   })
-  .catch(err => { fullTTSBar(); toast('⚠️ 请求失败', '请检查网络连接'); onEnd && onEnd(); });
+  .catch(() => { fullTTSBar(); toast('⚠️ 请求失败', '请检查网络连接'); onEnd && onEnd(); });
 }
 
 /* ---------- 总入口：本地 → 在线1 ---------- */
@@ -674,7 +705,6 @@ function speak(txt, onEnd){
     speakLocal(txt, onEnd);
     return;
   }
-  /* 本地不可用：直接走在线1（Worker） */
   if($('#useOnline1').checked){
     speakWorker(txt, onEnd);
   } else {
@@ -783,7 +813,7 @@ $('#autoClose').checked = localStorage.getItem(LS.autoClose) === '1';
 $('#useOnline1').checked = online1Enabled;
 $('#useOnline1').addEventListener('change', () => {
   online1Enabled = $('#useOnline1').checked;
-  localStorage.setItem(LS_ONLINE1, online1Enabled ? '1' : '0');
+  localStorage.setItem(LS.online1, online1Enabled ? '1' : '0');
 });
 $('#winAgain').addEventListener('click', () => { $('#mWin').classList.remove('show'); renderGrades(); newGame(true); });
 $('#winBook').addEventListener('click', () => { $('#mWin').classList.remove('show'); renderGrades(); openBook(); });
@@ -792,7 +822,7 @@ $('#vOK').addEventListener('click', () => $('#mVoice').classList.remove('show'))
 $('#vUseB').addEventListener('click', () => {
   $('#useOnline1').checked = true;
   online1Enabled = true;
-  localStorage.setItem(LS_ONLINE1, '1');
+  localStorage.setItem(LS.online1, '1');
   $('#mVoice').classList.remove('show');
   toast('已启用在线1', '在线语音已开启，可开始朗读');
 });
