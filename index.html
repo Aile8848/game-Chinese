@@ -131,6 +131,9 @@ body.hell .card.sel{background:#FFDDD6;box-shadow:0 0 0 5px rgba(226,61,40,.2),v
 canvas#fw{position:fixed;inset:0;pointer-events:none;z-index:70;display:none}
 .foot{text-align:center;color:#BCA88C;font-size:12px;margin-top:22px;line-height:1.8}
 .sw{display:flex;align-items:center;gap:6px;font-size:14px;color:var(--ink2);font-weight:700;cursor:pointer;user-select:none}
+.seg{display:inline-flex;border:2px solid var(--line);border-radius:16px;overflow:hidden;background:var(--panel);vertical-align:middle}
+.segbtn{border:none;background:transparent;font-family:inherit;font-size:14px;font-weight:700;color:var(--ink2);padding:9px 13px;cursor:pointer;transition:.12s;white-space:nowrap}
+.segbtn.on{background:linear-gradient(180deg,#FFBE5C,var(--brand));color:#fff}
 @media(max-width:640px){
   body{padding:12px 10px 30px}
   h1{font-size:20px} .logo{width:46px;height:46px;font-size:24px;border-radius:16px}
@@ -155,8 +158,12 @@ canvas#fw{position:fixed;inset:0;pointer-events:none;z-index:70;display:none}
       </div>
     </div>
     <div class="tools">
-      <label class="sw"><input type="checkbox" id="spk" checked style="width:18px;height:18px;accent-color:#FF9E2C"> 朗读</label><label class="sw"><input type="checkbox" id="useOnline1"> 在线1</label>
-      <button class="btn ghost small" id="btnVoice" title="重新检测语音">🔊 语音</button>
+      <button type="button" class="btn ghost small" id="btnMute" title="朗读开关"><span id="muteIco">🔊</span> <span id="muteTxt">有声</span></button>
+      <input type="checkbox" id="spk" checked hidden>
+      <span class="seg" id="ttsSeg">
+        <button type="button" class="segbtn" data-mode="local">🔊 本地</button>
+        <button type="button" class="segbtn" data-mode="online">🌐 在线</button>
+      </span>
       <button class="btn ghost" id="btnBook">📕 错字库</button>
       <button class="btn ghost" id="btnReset">♻️ 重置</button>
       <button class="btn" id="btnReplay">🎲 重玩一局</button>
@@ -227,20 +234,6 @@ canvas#fw{position:fixed;inset:0;pointer-events:none;z-index:70;display:none}
   </div>
 </div></div>
 
-<!-- 语音检测 -->
-<div class="mask" id="mVoice"><div class="modal" style="max-width:420px;text-align:center">
-  <div style="font-size:48px" id="vIcon">⏳</div>
-  <h2 id="vTitle">语音检测中…</h2>
-  <div class="tip" id="vMsg" style="line-height:1.8;font-size:15px;margin:8px 0 4px">正在检测语音功能，请稍候…</div>
-  <div class="mbtns" id="vBtns" style="display:none">
-    <button class="btn ghost" id="vLater">暂不</button>
-    <button class="btn" id="vUseB">🔊 启用在线语音</button>
-  </div>
-  <div class="mbtns" id="vOKBtns" style="display:none;margin-top:16px">
-    <button class="btn" id="vOK">知道了</button>
-  </div>
-</div></div>
-
 <!-- 确认清空 -->
 <div class="mask" id="mAsk"><div class="modal" style="max-width:400px;text-align:center">
   <div style="font-size:48px">🗑</div>
@@ -273,7 +266,7 @@ const LS = {
   used:  g => 'hzpy_used_v2_'  + g,
   grade: 'hzpy_grade_v2',
   autoClose: 'hzpy_autoclose_v1',
-  online1: 'hzpy_online1_v1'
+  ttsMode: 'hzpy_ttsmode_v1'
 };
 const S = {
   grade: localStorage.getItem(LS.grade) || '1',
@@ -524,78 +517,23 @@ function fullTTSBar(){
   }, 320);
 }
 
-const VOICE_LS = 'hzpy_voice_v3';
-let online1Enabled = localStorage.getItem(LS.online1) === '1';
 let voice = null;
-let voiceStatus = localStorage.getItem(VOICE_LS) || 'unknown';
 let currentAudio = null;
+/* 本地 / 在线：完全由用户选择，不做任何自动检测（默认本地）*/
+let ttsMode = localStorage.getItem(LS.ttsMode) === 'online' ? 'online' : 'local';
 
+/* 仅静默挑选中文语音引擎，不再做任何自动检测/弹窗，由用户自主选择本地或在线 */
 function initVoice(){
-  if(!window.speechSynthesis){
-    if(voiceStatus === 'unknown') detectResult('fail_noapi');
-    return;
-  }
+  if(!window.speechSynthesis) return;
   const pick = () => {
     const vs = speechSynthesis.getVoices() || [];
     voice = vs.find(v => /zh[-_]CN|Chinese|中文|普通话/i.test(v.lang + v.name)) ||
             vs.find(v => /^zh/i.test(v.lang)) || null;
-    return !!voice;
   };
   pick();
   speechSynthesis.onvoiceschanged = pick;
   setTimeout(pick, 800);
   setTimeout(pick, 2000);
-
-  if(voiceStatus === 'ok' || voiceStatus === 'fail') return;
-
-  $('#mVoice').classList.add('show');
-  $('#vIcon').textContent = '⏳';
-  $('#vTitle').textContent = '语音检测中…';
-  $('#vMsg').textContent = '正在检测语音功能，请稍候…';
-  $('#vBtns').style.display = 'none';
-  $('#vOKBtns').style.display = 'none';
-
-  let waited = 0;
-  const tryTest = () => {
-    if(!voice && waited < 1500){ waited += 300; setTimeout(tryTest, 300); return; }
-    doVoiceTest();
-  };
-  setTimeout(tryTest, 600);
-}
-
-function doVoiceTest(){
-  let triggered = false;
-  try{
-    const u = new SpeechSynthesisUtterance('字');
-    u.lang = 'zh-CN';
-    u.rate = 0.9; u.volume = 1;
-    if(voice) u.voice = voice;
-    u.onstart = () => { triggered = true; speechSynthesis.cancel(); detectResult('ok'); };
-    u.onerror = () => { if(!triggered) detectResult(voice ? 'fail' : 'fail_no_voice'); };
-    setTimeout(() => { if(!triggered) detectResult(voice ? 'fail' : 'fail_no_voice'); }, 1600);
-    speechSynthesis.speak(u);
-  }catch(e){
-    detectResult('fail_exception');
-  }
-}
-
-function detectResult(status){
-  const map = {
-    ok:             {icon:'✅', title:'语音功能正常',  msg:'您的设备可以正常朗读汉字拼音，放心使用吧！',                       showOK:true,  save:'ok'},
-    fail:           {icon:'⚠️', title:'语音可能无法使用', msg:'检测到您的设备可能无法朗读中文。建议启用在线语音，联网即可使用。',  showOK:false, save:'fail'},
-    fail_no_voice:  {icon:'⚠️', title:'未找到中文语音引擎',msg:'您的设备可能没有安装中文语音引擎（华为常见）。建议启用在线语音。',  showOK:false, save:'fail'},
-    fail_noapi:     {icon:'❌', title:'不支持系统语音',   msg:'当前浏览器不支持系统语音朗读。建议启用在线语音功能。',             showOK:false, save:'fail'},
-    fail_exception: {icon:'❌', title:'检测异常',         msg:'检测语音功能时发生异常。建议启用在线语音功能。',                    showOK:false, save:'fail'}
-  };
-  const r = map[status]; if(!r) return;
-  localStorage.setItem(VOICE_LS, r.save);
-  voiceStatus = r.save;
-  $('#mVoice').classList.add('show');
-  $('#vIcon').textContent = r.icon;
-  $('#vTitle').textContent = r.title;
-  $('#vMsg').textContent = r.msg;
-  $('#vBtns').style.display = r.showOK ? 'none' : '';
-  $('#vOKBtns').style.display = r.showOK ? '' : 'none';
 }
 
 function stopCurrentAudio(){
@@ -606,55 +544,77 @@ function stopCurrentAudio(){
   }
 }
 
-/* ---------- 本地语音（优先，带看门狗与在线兜底）---------- */
-function fallbackToOnline(txt, onEnd){
-  if($('#useOnline1').checked){
-    speakWorker(txt, onEnd);
-  } else {
-    toast('🔇 本地朗读失败', '可在设置开启「在线1」');
-    onEnd && onEnd();
-  }
-}
-
+/* ---------- 本地语音（用户手动选择时才用，不自动兜底）---------- */
 function speakLocal(txt, onEnd){
-  if(!window.speechSynthesis){ fallbackToOnline(txt, onEnd); return; }
+  if(!window.speechSynthesis){
+    fullTTSBar(); toast('🔇 本地朗读不可用', '可切换到「🌐 在线」');
+    onEnd && onEnd(); return;
+  }
   try{
     stopCurrentAudio();
     try { speechSynthesis.cancel(); } catch(e){}
     showTTSBar();
-    let done = false;          // 是否已结束（成功或已兜底）
+    let done = false;
     let started = false;
     let startTimer = null, endTimer = null;
     const finish = () => { if(done) return; done = true; clearTimeout(startTimer); clearTimeout(endTimer); fullTTSBar(); onEnd && onEnd(); };
-    const fail = () => {
+    const stop = (msg) => {
       if(done) return; done = true; clearTimeout(startTimer); clearTimeout(endTimer);
       fullTTSBar();
       try { speechSynthesis.cancel(); } catch(e){}
-      fallbackToOnline(txt, onEnd);   // 本地不行 → 在线兜底
+      if(msg) toast('🔇 本地朗读失败', '可切换到「🌐 在线」');
+      onEnd && onEnd();
     };
     const u = new SpeechSynthesisUtterance(txt);
     u.lang = 'zh-CN'; u.rate = .85; u.pitch = 1.05;
     if(voice) u.voice = voice;
     u.onstart = () => { started = true; clearTimeout(startTimer); };
     u.onend   = () => finish();
-    u.onerror = () => { if(!done) fail(); };
+    u.onerror = () => stop(true);
     speechSynthesis.speak(u);
-    // 看门狗①：迟迟不开始（Chrome 常见抽风）→ 在线兜底
-    startTimer = setTimeout(() => { if(!started && !done) fail(); }, 1200);
-    // 看门狗②：开始了却不结束（onend 不触发）→ 在线兜底，避免卡死
+    // 看门狗①：迟迟不开始（Chrome 常见抽风）→ 提示切换在线
+    startTimer = setTimeout(() => { if(!started && !done) stop(true); }, 1200);
+    // 看门狗②：开始了却不结束（onend 不触发）→ 收尾，避免卡死
     const est = 2000 + txt.length * 400;
-    endTimer = setTimeout(() => { if(!done) fail(); }, est);
+    endTimer = setTimeout(() => { if(!done) stop(false); }, est);
   }catch(e){
-    fallbackToOnline(txt, onEnd);
+    fullTTSBar(); toast('🔇 本地朗读失败', '可切换到「🌐 在线」');
+    onEnd && onEnd();
   }
 }
 
-/* ---------- 在线1：直连 Edge TTS Worker（不依赖 Pages Functions）---------- */
+/* ---------- 在线：直连 Edge TTS Worker（不依赖 Pages Functions）---------- */
 /* ↓↓↓ 改成你的 Worker 自定义域名（必须国内可访问，不要 *.workers.dev，它在中国被墙） ↓↓↓ */
 const TTS_WORKER_URL = 'https://tts.leci04.top';
 /* 与 Worker 端 GAME_TOKEN 保持一致（仅防君子，写在公开 JS 里） */
 const TTS_GAME_TOKEN = 'lec1-TTS-k3y-8x';
 const ttsCache = new Map();
+
+/* ---------- 移动端音频解锁 ----------
+ * 首次用户交互时解锁 AudioContext / 静音 audio，避免 fetch 异步拿到音频后
+ * 调用 audio.play() 被浏览器的自动播放策略拦截（iOS Safari / 严格安卓策略会直接拒绝） */
+let _audioUnlocked = false;
+function unlockAudio(){
+  if(_audioUnlocked) return;
+  _audioUnlocked = true;
+  try{
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if(AC){
+      const ctx = new AC();
+      if(ctx.state === 'suspended') ctx.resume();
+      const buf = ctx.createBuffer(1, 1, 22050);
+      const src = ctx.createBufferSource();
+      src.buffer = buf; src.connect(ctx.destination); src.start(0);
+    }
+  }catch(e){}
+  try{
+    const a = new Audio();
+    a.muted = true;
+    a.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
+    a.play().catch(()=>{});
+  }catch(e){}
+}
+['pointerdown','touchstart','click','keydown'].forEach(ev => document.addEventListener(ev, unlockAudio, { passive:true }));
 
 function speakWorker(txt, onEnd){
   if(!txt){ onEnd && onEnd(); return; }
@@ -687,33 +647,30 @@ function speakWorker(txt, onEnd){
   })
   .then(blob => {
     const url = URL.createObjectURL(blob);
-    ttsCache.set(txt, url);
-    if(ttsCache.size > 200){
-      ttsCache.forEach(u => URL.revokeObjectURL(u));
-      ttsCache.clear();
-    }
     const audio = new Audio(url);
     audio.onended = () => { fullTTSBar(); onEnd && onEnd(); };
     audio.onerror = () => { fullTTSBar(); URL.revokeObjectURL(url); toast('⚠️ 朗读失败', '在线语音不可用'); onEnd && onEnd(); };
     currentAudio = audio;
     audio.play().catch(err => { fullTTSBar(); URL.revokeObjectURL(url); toast('⚠️ 播放失败', err.message); onEnd && onEnd(); });
+    /* 缓存：保留最近 200 条，超出时仅淘汰最旧的一条，且绝不 revoke 当前正在用的 url */
+    if(ttsCache.size >= 200){
+      const oldest = ttsCache.keys().next().value;
+      const ou = ttsCache.get(oldest);
+      ttsCache.delete(oldest);
+      if(ou !== url) URL.revokeObjectURL(ou);
+    }
+    ttsCache.set(txt, url);
   })
   .catch(() => { fullTTSBar(); toast('⚠️ 请求失败', '请检查网络连接'); onEnd && onEnd(); });
 }
 
-/* ---------- 总入口：本地 → 在线1 ---------- */
+/* ---------- 总入口：由用户选择本地 / 在线 ---------- */
 function speak(txt, onEnd){
   if(!$('#spk').checked || !txt){ onEnd && onEnd(); return; }
-  const canLocal = window.speechSynthesis && (voiceStatus === 'ok' || !!voice);
-  if(canLocal){
-    speakLocal(txt, onEnd);
-    return;
-  }
-  if($('#useOnline1').checked){
+  if(ttsMode === 'online'){
     speakWorker(txt, onEnd);
   } else {
-    toast('🔇 朗读不可用', '可在设置开启「在线1」');
-    onEnd && onEnd();
+    speakLocal(txt, onEnd);
   }
 }
 
@@ -781,12 +738,36 @@ function renderGrades(){
 $('#btnReplay').addEventListener('click', () => newGame(true));
 $('#btnReset').addEventListener('click', () => { S.best = 0; newGame(false); toast('已重置','分数清零，重新开始'); });
 $('#btnBook').addEventListener('click', openBook);
-$('#btnVoice').addEventListener('click', () => {
-  localStorage.removeItem(VOICE_LS);
-  voiceStatus = 'unknown';
-  voice = null;
-  initVoice();
+
+/* 朗读模式：本地 / 在线，完全由用户选择 */
+function renderTtsSeg(){
+  document.querySelectorAll('#ttsSeg .segbtn').forEach(b => {
+    b.classList.toggle('on', b.dataset.mode === ttsMode);
+  });
+}
+document.querySelectorAll('#ttsSeg .segbtn').forEach(b => {
+  b.addEventListener('click', () => {
+    ttsMode = b.dataset.mode;
+    localStorage.setItem(LS.ttsMode, ttsMode);
+    renderTtsSeg();
+    toast(ttsMode === 'online' ? '已切换到在线朗读' : '已切换到本地朗读',
+          ttsMode === 'online' ? '联网即用，音质更稳' : '无需联网，依赖本机语音引擎');
+  });
 });
+renderTtsSeg();
+
+/* 静音开关：点击在「有声 / 静音」间切换 */
+function renderMute(){
+  const on = $('#spk').checked;
+  $('#muteIco').textContent = on ? '🔊' : '🔇';
+  $('#muteTxt').textContent = on ? '有声' : '静音';
+}
+$('#btnMute').addEventListener('click', () => {
+  $('#spk').checked = !$('#spk').checked;
+  renderMute();
+});
+renderMute();
+
 $('#bookClose').addEventListener('click', () => $('#mBook').classList.remove('show'));
 $('#bookPractice').addEventListener('click', () => {
   $('#mBook').classList.remove('show'); S.onlyWrong = true; newGame(false);
@@ -814,25 +795,9 @@ $('#autoClose').addEventListener('change', () => {
   localStorage.setItem(LS.autoClose, $('#autoClose').checked ? '1' : '0');
 });
 $('#autoClose').checked = localStorage.getItem(LS.autoClose) === '1';
-$('#useOnline1').checked = online1Enabled;
-$('#useOnline1').addEventListener('change', () => {
-  online1Enabled = $('#useOnline1').checked;
-  localStorage.setItem(LS.online1, online1Enabled ? '1' : '0');
-});
 $('#winAgain').addEventListener('click', () => { $('#mWin').classList.remove('show'); renderGrades(); newGame(true); });
 $('#winBook').addEventListener('click', () => { $('#mWin').classList.remove('show'); renderGrades(); openBook(); });
 $('#mBook').addEventListener('click', e => { if(e.target.id === 'mBook') $('#mBook').classList.remove('show'); });
-$('#vOK').addEventListener('click', () => $('#mVoice').classList.remove('show'));
-$('#vUseB').addEventListener('click', () => {
-  $('#useOnline1').checked = true;
-  online1Enabled = true;
-  localStorage.setItem(LS.online1, '1');
-  $('#mVoice').classList.remove('show');
-  toast('已启用在线1', '在线语音已开启，可开始朗读');
-});
-$('#vLater').addEventListener('click', () => {
-  $('#mVoice').classList.remove('show');
-});
 document.addEventListener('keydown', e => { if(e.key === 'Escape') document.querySelectorAll('.mask.show').forEach(m => m.classList.remove('show')); });
 
 initVoice(); renderGrades(); newGame(false);
