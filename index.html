@@ -44,6 +44,45 @@ h1{font-size:26px;margin:0;letter-spacing:1px}
 .btn.ghost:active{box-shadow:0 1px 0 var(--line)}
 .btn.small{font-size:14px;padding:9px 14px;border-radius:16px}
 
+/* ===== 顶部滚动横幅通知（Cookie 控制，只在未看过的设备显示）===== */
+.notify{position:relative;overflow:hidden;border-radius:20px;border:2px solid #F3C98B;
+  background:linear-gradient(180deg,#FFF6E2,#FFEDCE);margin-bottom:14px;
+  box-shadow:0 4px 0 #EFDCB6;display:none}
+.notify.on{display:block}
+.notify .track{display:flex;align-items:center;gap:40px;width:max-content;padding:11px 0}
+.notify.run .track{animation:marquee linear infinite}
+@keyframes marquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+.notify .it{display:flex;align-items:center;gap:9px;white-space:nowrap;
+  font-size:clamp(14px,3.6vw,17px);font-weight:700;color:#8A5A18}
+.notify .it .dot{width:9px;height:9px;border-radius:99px;background:var(--brand);flex:none;
+  box-shadow:0 0 0 4px rgba(255,158,44,.22)}
+.notify .it .em{font-size:1.15em}
+.notify .x{position:absolute;right:8px;top:50%;transform:translateY(-50%);
+  width:30px;height:30px;border-radius:99px;border:2px solid #EBC98F;background:#FFFDF7;
+  color:#A97B36;font-size:15px;line-height:1;cursor:pointer;display:grid;place-items:center;
+  font-family:inherit;padding:0;z-index:2}
+.notify .x:hover{background:#FFF1D6}
+.notify .fade{position:absolute;top:0;bottom:0;width:44px;pointer-events:none;z-index:1}
+.notify .fade.l{left:0;background:linear-gradient(90deg,#FFF3DE,transparent)}
+.notify .fade.r{right:0;background:linear-gradient(270deg,#FFEED5,transparent)}
+body.hell .notify{border-color:#EFBDB2;background:linear-gradient(180deg,#FFF1ED,#FFE2DB);box-shadow:0 4px 0 #EFC9C0}
+body.hell .notify .it{color:#A23B24}
+body.hell .notify .dot{background:var(--hell);box-shadow:0 0 0 4px rgba(226,61,40,.18)}
+body.hell .notify .x{border-color:#EFC0B6;color:#B04A31}
+body.hell .notify .fade.l{background:linear-gradient(90deg,#FFF0EB,transparent)}
+body.hell .notify .fade.r{background:linear-gradient(270deg,#FFE4DD,transparent)}
+@media(max-width:640px){ .notify{border-radius:16px} .notify .x{width:26px;height:26px;font-size:13px} }
+
+/* ===== 首次打开：浏览器提示弹窗 ===== */
+.guide-em{font-size:52px;text-align:center;line-height:1.1}
+.guide-hd{display:flex;align-items:center;justify-content:center;gap:8px;font-size:20px;font-weight:800;margin:8px 0 4px}
+.badapps{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:14px 0 4px}
+.badapps span{background:#FFF0EA;border:2px solid #F6CFC2;color:#C9543A;border-radius:14px;
+  padding:6px 12px;font-size:14px;font-weight:700}
+.goodapps{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:10px 0 0}
+.goodapps span{background:#EFFAF3;border:2px solid #BFE6CE;color:#3F8F62;border-radius:14px;
+  padding:6px 12px;font-size:14px;font-weight:700}
+
 .grades{display:flex;gap:9px;flex-wrap:wrap;background:var(--panel);border:2px solid var(--line);
   padding:10px;border-radius:24px;margin-bottom:14px;align-items:center}
 .gl{font-size:14px;color:var(--ink2);padding:0 6px;font-weight:700}
@@ -130,10 +169,7 @@ body.hell .card.sel{background:#FFDDD6;box-shadow:0 0 0 5px rgba(226,61,40,.2),v
   width:22px;height:22px;border-radius:99px;font-size:12px;line-height:18px;cursor:pointer}
 canvas#fw{position:fixed;inset:0;pointer-events:none;z-index:70;display:none}
 .foot{text-align:center;color:#BCA88C;font-size:12px;margin-top:22px;line-height:1.8}
-.sw{display:flex;align-items:center;gap:6px;font-size:14px;color:var(--ink2);font-weight:700;cursor:pointer;user-select:none}
-.seg{display:inline-flex;border:2px solid var(--line);border-radius:16px;overflow:hidden;background:var(--panel);vertical-align:middle}
-.segbtn{border:none;background:transparent;font-family:inherit;font-size:14px;font-weight:700;color:var(--ink2);padding:9px 13px;cursor:pointer;transition:.12s;white-space:nowrap}
-.segbtn.on{background:linear-gradient(180deg,#FFBE5C,var(--brand));color:#fff}
+
 @media(max-width:640px){
   body{padding:12px 10px 30px}
   h1{font-size:20px} .logo{width:46px;height:46px;font-size:24px;border-radius:16px}
@@ -149,6 +185,14 @@ canvas#fw{position:fixed;inset:0;pointer-events:none;z-index:70;display:none}
 
 <div class="wrap">
 
+  <!-- ★ 新增：顶部滚动横幅通知（Cookie 判定，只有没看过的设备才显示） -->
+  <div class="notify" id="notify">
+    <span class="fade l"></span>
+    <div class="track" id="notifyTrack"></div>
+    <span class="fade r"></span>
+    <button class="x" id="notifyX" title="知道了，不再提示">✕</button>
+  </div>
+
   <div class="top">
     <div class="brand">
       <div class="logo">字</div>
@@ -160,10 +204,7 @@ canvas#fw{position:fixed;inset:0;pointer-events:none;z-index:70;display:none}
     <div class="tools">
       <button type="button" class="btn ghost small" id="btnMute" title="朗读开关"><span id="muteIco">🔊</span> <span id="muteTxt">有声</span></button>
       <input type="checkbox" id="spk" checked hidden>
-      <span class="seg" id="ttsSeg">
-        <button type="button" class="segbtn" data-mode="local">🔊 本地</button>
-        <button type="button" class="segbtn" data-mode="online">🌐 在线</button>
-      </span>
+      <!-- ★ 已删除：本地/在线 朗读模式分段开关 -->
       <button class="btn ghost" id="btnBook">📕 错字库</button>
       <button class="btn ghost" id="btnReset">♻️ 重置</button>
       <button class="btn" id="btnReplay">🎲 重玩一局</button>
@@ -192,7 +233,8 @@ canvas#fw{position:fixed;inset:0;pointer-events:none;z-index:70;display:none}
 
   <div class="foot">
     字库：人教部编版小学语文 1—6 年级写字表（共 2488 字）+ 地狱难度常用字 444 字<br>
-    错题按年级分别保存在本机浏览器，换台设备不互通
+    错题按年级分别保存在本机浏览器，换台设备不互通<br>
+    🔊 朗读使用设备本地语音引擎，无需联网
   </div>
 </div>
 
@@ -245,6 +287,26 @@ canvas#fw{position:fixed;inset:0;pointer-events:none;z-index:70;display:none}
   </div>
 </div></div>
 
+<!-- ★ 新增：首次打开·浏览器提示弹窗 -->
+<div class="mask" id="mGuide"><div class="modal" style="max-width:480px">
+  <div class="guide-em">🌐</div>
+  <div class="guide-hd">请用「浏览器」打开本游戏</div>
+  <div class="tip" style="margin-top:8px">本游戏的朗读功能依赖浏览器自带的语音引擎。
+    在聊天软件的内置浏览器里打开，<b style="color:var(--err)">朗读会完全失效</b>。</div>
+  <div class="tip" style="margin-top:14px;color:var(--err);font-weight:700">❌ 不要从这些地方直接打开</div>
+  <div class="badapps">
+    <span>QQ</span><span>微信</span><span>钉钉</span><span>抖音</span><span>其他 App 内置浏览器</span>
+  </div>
+  <div class="tip" style="margin-top:14px;color:var(--ok);font-weight:700">✅ 请用这些浏览器打开</div>
+  <div class="goodapps">
+    <span>Chrome</span><span>Edge</span><span>Safari</span><span>系统自带浏览器</span><span>夸克 / UC</span>
+  </div>
+  <div class="tip" style="margin-top:16px;font-size:13px">💡 在 QQ / 微信 里请点右上角「⋯」→「在浏览器中打开」</div>
+  <div class="mbtns">
+    <button class="btn" id="guideOk">我知道了，开始游戏 ▶</button>
+  </div>
+</div></div>
+
 <div class="toast" id="toast"><div class="th" id="toastT">配对错误</div><div class="ts" id="toastS"></div></div>
 <canvas id="fw"></canvas>
 
@@ -265,8 +327,12 @@ const LS = {
   wrong: g => 'hzpy_wrong_v2_' + g,
   used:  g => 'hzpy_used_v2_'  + g,
   grade: 'hzpy_grade_v2',
-  autoClose: 'hzpy_autoclose_v1',
-  ttsMode: 'hzpy_ttsmode_v1'
+  autoClose: 'hzpy_autoclose_v1'
+};
+/* ★ 新增：通知 / 引导 的 Cookie 名（跨设备不共享，换设备会再弹一次）*/
+const CK = {
+  banner: 'hzpy_notice_offline_tts_v1',
+  guide:  'hzpy_guide_browser_v1'
 };
 const S = {
   grade: localStorage.getItem(LS.grade) || '1',
@@ -275,7 +341,23 @@ const S = {
   t0: 0, timer: null, onlyWrong: false,
   winShown: false
 };
-let bookSeeded = false;   /* ★ 修复：本会话仅首局从错字库优先出题，之后每局只练新字（下次打开时优先复习） */
+let bookSeeded = false;
+
+/* ---------- Cookie 工具 ---------- */
+function ckSet(name, val, days){
+  try{
+    const d = new Date();
+    d.setTime(d.getTime() + (days||3650) * 864e5);
+    document.cookie = name + '=' + encodeURIComponent(val) + ';expires=' + d.toUTCString() +
+      ';path=/;SameSite=Lax' + (location.protocol === 'https:' ? ';Secure' : '');
+  }catch(e){}
+}
+function ckGet(name){
+  try{
+    const m = document.cookie.match(new RegExp('(?:^|; )' + name.replace(/([.*+?^${}()|[\]\\])/g,'\\$1') + '=([^;]*)'));
+    return m ? decodeURIComponent(m[1]) : null;
+  }catch(e){ return null; }
+}
 
 /* ---------- 存储 ---------- */
 function readJSON(k, d){ try{ return JSON.parse(localStorage.getItem(k)) || d; }catch(e){ return d; } }
@@ -297,21 +379,16 @@ function buildRound(){
     picked.push(it); chs.add(it.c); pys.add(it.p); return true;
   };
 
-  /* ★ 修复：错字只在「本会话首局」和「只练错字模式」里出题
-     之后每局只练新字，避免刚错的字在后续多轮反复出现；
-     真正的复习留给「下次打开」（bookSeeded 在刷新页面时重置为 false） */
   const allWrong = Object.values(book);
-  const bookChars = new Set(allWrong.map(r => r.c));   /* 本会话内错字一律不再作为新字出题 */
+  const bookChars = new Set(allWrong.map(r => r.c));
   if(S.onlyWrong){
-    /* 只练错字模式：整局全部来自错字库 */
     for(const r of shuffle(allWrong.slice())){ if(picked.length >= PAIR_N) break; add({c:r.c, p:r.p, w:r.w}); }
   } else if(!bookSeeded){
-    /* 本会话首局：从错字库优先抽（最多 4 个）作为复习 */
     if(allWrong.length){
       const quota = Math.min(4, allWrong.length);
       for(const r of shuffle(allWrong.slice())){ if(picked.length >= quota) break; add({c:r.c, p:r.p, w:r.w}); }
     }
-    bookSeeded = true;   /* 首局之后不再注入错字库 */
+    bookSeeded = true;
   }
 
   const fresh = shuffle(pool.filter(x => !used.has(x.c) && !bookChars.has(x.c)));
@@ -489,7 +566,7 @@ function openBook(){
   $('#mBook').classList.add('show');
 }
 
-/* ============== 语音系统 ============== */
+/* ============== 语音系统（★ 只保留本地 TTS） ============== */
 let ttsBarTimer = null;
 let ttsBarHideTimer = null;
 function showTTSBar(){
@@ -518,11 +595,8 @@ function fullTTSBar(){
 }
 
 let voice = null;
-let currentAudio = null;
-/* 本地 / 在线：完全由用户选择，不做任何自动检测（默认本地）*/
-let ttsMode = localStorage.getItem(LS.ttsMode) === 'online' ? 'online' : 'local';
 
-/* 仅静默挑选中文语音引擎，不再做任何自动检测/弹窗，由用户自主选择本地或在线 */
+/* 仅静默挑选中文语音引擎 */
 function initVoice(){
   if(!window.speechSynthesis) return;
   const pick = () => {
@@ -536,22 +610,13 @@ function initVoice(){
   setTimeout(pick, 2000);
 }
 
-function stopCurrentAudio(){
-  if(currentAudio){
-    currentAudio.pause();
-    currentAudio.src = '';
-    currentAudio = null;
-  }
-}
-
-/* ---------- 本地语音（用户手动选择时才用，不自动兜底）---------- */
+/* ---------- 本地语音 ---------- */
 function speakLocal(txt, onEnd){
   if(!window.speechSynthesis){
-    fullTTSBar(); toast('🔇 本地朗读不可用', '可切换到「🌐 在线」');
+    fullTTSBar(); toast('🔇 本机不支持朗读', '请换用 Chrome / Edge / Safari 打开');
     onEnd && onEnd(); return;
   }
   try{
-    stopCurrentAudio();
     try { speechSynthesis.cancel(); } catch(e){}
     showTTSBar();
     let done = false;
@@ -562,7 +627,7 @@ function speakLocal(txt, onEnd){
       if(done) return; done = true; clearTimeout(startTimer); clearTimeout(endTimer);
       fullTTSBar();
       try { speechSynthesis.cancel(); } catch(e){}
-      if(msg) toast('🔇 本地朗读失败', '可切换到「🌐 在线」');
+      if(msg) toast('🔇 朗读失败', '请在「设置」里检查系统语音引擎');
       onEnd && onEnd();
     };
     const u = new SpeechSynthesisUtterance(txt);
@@ -572,106 +637,19 @@ function speakLocal(txt, onEnd){
     u.onend   = () => finish();
     u.onerror = () => stop(true);
     speechSynthesis.speak(u);
-    // 看门狗①：迟迟不开始（Chrome 常见抽风）→ 提示切换在线
     startTimer = setTimeout(() => { if(!started && !done) stop(true); }, 1200);
-    // 看门狗②：开始了却不结束（onend 不触发）→ 收尾，避免卡死
     const est = 2000 + txt.length * 400;
     endTimer = setTimeout(() => { if(!done) stop(false); }, est);
   }catch(e){
-    fullTTSBar(); toast('🔇 本地朗读失败', '可切换到「🌐 在线」');
+    fullTTSBar(); toast('🔇 朗读失败', '请在「设置」里检查系统语音引擎');
     onEnd && onEnd();
   }
 }
 
-/* ---------- 在线：直连 Edge TTS Worker（不依赖 Pages Functions）---------- */
-/* ↓↓↓ 改成你的 Worker 自定义域名（必须国内可访问，不要 *.workers.dev，它在中国被墙） ↓↓↓ */
-const TTS_WORKER_URL = 'https://tts.leci04.top';
-/* 与 Worker 端 GAME_TOKEN 保持一致（仅防君子，写在公开 JS 里） */
-const TTS_GAME_TOKEN = 'lec1-TTS-k3y-8x';
-const ttsCache = new Map();
-
-/* ---------- 移动端音频解锁 ----------
- * 首次用户交互时解锁 AudioContext / 静音 audio，避免 fetch 异步拿到音频后
- * 调用 audio.play() 被浏览器的自动播放策略拦截（iOS Safari / 严格安卓策略会直接拒绝） */
-let _audioUnlocked = false;
-function unlockAudio(){
-  if(_audioUnlocked) return;
-  _audioUnlocked = true;
-  try{
-    const AC = window.AudioContext || window.webkitAudioContext;
-    if(AC){
-      const ctx = new AC();
-      if(ctx.state === 'suspended') ctx.resume();
-      const buf = ctx.createBuffer(1, 1, 22050);
-      const src = ctx.createBufferSource();
-      src.buffer = buf; src.connect(ctx.destination); src.start(0);
-    }
-  }catch(e){}
-  try{
-    const a = new Audio();
-    a.muted = true;
-    a.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
-    a.play().catch(()=>{});
-  }catch(e){}
-}
-['pointerdown','touchstart','click','keydown'].forEach(ev => document.addEventListener(ev, unlockAudio, { passive:true }));
-
-function speakWorker(txt, onEnd){
-  if(!txt){ onEnd && onEnd(); return; }
-
-  /* 命中缓存：不请求，直接播放 */
-  const cached = ttsCache.get(txt);
-  if(cached){
-    stopCurrentAudio();
-    showTTSBar();
-    try{
-      const audio = new Audio(cached);
-      audio.onended = () => { fullTTSBar(); onEnd && onEnd(); };
-      audio.onerror = () => { fullTTSBar(); onEnd && onEnd(); };
-      currentAudio = audio;
-      audio.play().catch(() => { fullTTSBar(); onEnd && onEnd(); });
-      return;
-    }catch(e){ /* 缓存失效，走正常流程 */ }
-  }
-
-  stopCurrentAudio();
-  showTTSBar();
-  fetch(TTS_WORKER_URL + '/v1/audio/speech', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Game-Key': TTS_GAME_TOKEN },
-    body: JSON.stringify({ input: txt, voice: 'zh-CN-XiaoxiaoNeural', speed: 1.0, pitch: '0', style: 'general' })
-  })
-  .then(res => {
-    if(!res.ok) throw new Error('请求失败');
-    return res.blob();
-  })
-  .then(blob => {
-    const url = URL.createObjectURL(blob);
-    const audio = new Audio(url);
-    audio.onended = () => { fullTTSBar(); onEnd && onEnd(); };
-    audio.onerror = () => { fullTTSBar(); URL.revokeObjectURL(url); toast('⚠️ 朗读失败', '在线语音不可用'); onEnd && onEnd(); };
-    currentAudio = audio;
-    audio.play().catch(err => { fullTTSBar(); URL.revokeObjectURL(url); toast('⚠️ 播放失败', err.message); onEnd && onEnd(); });
-    /* 缓存：保留最近 200 条，超出时仅淘汰最旧的一条，且绝不 revoke 当前正在用的 url */
-    if(ttsCache.size >= 200){
-      const oldest = ttsCache.keys().next().value;
-      const ou = ttsCache.get(oldest);
-      ttsCache.delete(oldest);
-      if(ou !== url) URL.revokeObjectURL(ou);
-    }
-    ttsCache.set(txt, url);
-  })
-  .catch(() => { fullTTSBar(); toast('⚠️ 请求失败', '请检查网络连接'); onEnd && onEnd(); });
-}
-
-/* ---------- 总入口：由用户选择本地 / 在线 ---------- */
+/* ---------- 总入口 ---------- */
 function speak(txt, onEnd){
   if(!$('#spk').checked || !txt){ onEnd && onEnd(); return; }
-  if(ttsMode === 'online'){
-    speakWorker(txt, onEnd);
-  } else {
-    speakLocal(txt, onEnd);
-  }
+  speakLocal(txt, onEnd);
 }
 
 /* ---------- 烟花 ---------- */
@@ -734,27 +712,51 @@ function renderGrades(){
   $('#g1tip').classList.toggle('show', S.grade === '1');
 }
 
+/* ============== ★ 新增：滚动横幅通知（Cookie 控制） ============== */
+/* 滚动速度跟着屏幕宽度走：屏幕越宽，字号越大，速度按 px/s 换算 */
+const NOTICE_ITEMS = [
+  {em:'📢', t:'在线 TTS 朗读已经下线，请使用「本地 TTS 朗读」！'},
+  {em:'💰', t:'因经费与开发问题，短期内不会重新上线在线朗读。'},
+  {em:'🙏', t:'本站不考虑付费方案，目前正在寻找替代方案，感谢理解！'}
+];
+function initNotify(){
+  if(ckGet(CK.banner)) return;                    /* 已看过 → 不再显示 */
+  const box = $('#notify'), track = $('#notifyTrack');
+  /* 内容重复两遍，实现无缝循环 */
+  const html = NOTICE_ITEMS.map(x =>
+    '<div class="it"><span class="dot"></span><span class="em">'+x.em+'</span><span>'+x.t+'</span></div>'
+  ).join('');
+  track.innerHTML = html + html;
+  box.classList.add('on');
+
+  const speed = innerWidth < 640 ? 46 : (innerWidth < 1024 ? 62 : 78);  /* px/s */
+  requestAnimationFrame(() => {
+    const half = track.scrollWidth / 2;
+    track.style.animationDuration = Math.max(12, half / speed) + 's';
+    box.classList.add('run');
+  });
+
+  const close = () => { box.classList.remove('on'); ckSet(CK.banner, '1'); };
+  $('#notifyX').addEventListener('click', close);
+}
+
+/* ============== ★ 新增：首次打开·浏览器提示（Cookie 控制） ============== */
+function initGuide(){
+  if(ckGet(CK.guide)) return;                     /* 已看过 → 不再显示 */
+  /* 稍延迟，避免和横幅一起突然弹出 */
+  setTimeout(() => $('#mGuide').classList.add('show'), 320);
+  $('#guideOk').addEventListener('click', () => {
+    $('#mGuide').classList.remove('show');
+    ckSet(CK.guide, '1');
+  });
+}
+
 /* ---------- 事件 ---------- */
 $('#btnReplay').addEventListener('click', () => newGame(true));
 $('#btnReset').addEventListener('click', () => { S.best = 0; newGame(false); toast('已重置','分数清零，重新开始'); });
 $('#btnBook').addEventListener('click', openBook);
 
-/* 朗读模式：本地 / 在线，完全由用户选择 */
-function renderTtsSeg(){
-  document.querySelectorAll('#ttsSeg .segbtn').forEach(b => {
-    b.classList.toggle('on', b.dataset.mode === ttsMode);
-  });
-}
-document.querySelectorAll('#ttsSeg .segbtn').forEach(b => {
-  b.addEventListener('click', () => {
-    ttsMode = b.dataset.mode;
-    localStorage.setItem(LS.ttsMode, ttsMode);
-    renderTtsSeg();
-    toast(ttsMode === 'online' ? '已切换到在线朗读' : '已切换到本地朗读',
-          ttsMode === 'online' ? '联网即用，音质更稳' : '无需联网，依赖本机语音引擎');
-  });
-});
-renderTtsSeg();
+/* ★ 已删除：本地/在线朗读模式切换相关代码 */
 
 /* 静音开关：点击在「有声 / 静音」间切换 */
 function renderMute(){
@@ -798,9 +800,11 @@ $('#autoClose').checked = localStorage.getItem(LS.autoClose) === '1';
 $('#winAgain').addEventListener('click', () => { $('#mWin').classList.remove('show'); renderGrades(); newGame(true); });
 $('#winBook').addEventListener('click', () => { $('#mWin').classList.remove('show'); renderGrades(); openBook(); });
 $('#mBook').addEventListener('click', e => { if(e.target.id === 'mBook') $('#mBook').classList.remove('show'); });
+$('#mGuide').addEventListener('click', e => { if(e.target.id === 'mGuide'){ $('#mGuide').classList.remove('show'); ckSet(CK.guide,'1'); } });
 document.addEventListener('keydown', e => { if(e.key === 'Escape') document.querySelectorAll('.mask.show').forEach(m => m.classList.remove('show')); });
 
 initVoice(); renderGrades(); newGame(false);
+initNotify(); initGuide();   /* ★ 新增 */
 })();
 </script>
 </body>
