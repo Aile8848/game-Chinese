@@ -144,7 +144,6 @@ canvas#fw{position:fixed;inset:0;pointer-events:none;z-index:70;display:none}
 .sitefoot .mail:active{transform:translateY(1px)}
 .sitefoot .btn-sponsor{margin-top:14px;border:none;cursor:pointer;font-family:inherit;font-size:15px;font-weight:800;color:#fff;letter-spacing:1px;background:linear-gradient(180deg,#FFC46B,#F07C1E);padding:11px 26px;border-radius:22px;box-shadow:0 4px 0 #D96A15;transition:.12s;white-space:nowrap}
 .sitefoot .btn-sponsor:active{transform:translateY(3px);box-shadow:0 1px 0 #D96A15}
-/* 赞助弹窗（复用 .mask / .modal） */
 .reward-img{width:min(260px,72vw);max-width:260px;height:auto;display:block;margin:6px auto 0;border-radius:18px;border:2px solid var(--line);background:#fff}
 .copytip{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(10px);z-index:90;pointer-events:none;background:#5A452C;color:#FFF7E9;font-size:14px;font-weight:700;padding:10px 20px;border-radius:99px;box-shadow:0 8px 22px rgba(90,69,44,.3);opacity:0;transition:.2s;white-space:nowrap}
 .copytip.show{opacity:1;transform:translateX(-50%) translateY(0)}
@@ -214,7 +213,7 @@ canvas#fw{position:fixed;inset:0;pointer-events:none;z-index:70;display:none}
   <div class="foot">
     字库：人教部编版小学语文 1—6 年级写字表 + 地狱难度常用字<br>
     错题按年级分别保存在本机浏览器，换台设备不互通<br>
-    🔊 单字朗读使用音频包，组词使用本机语音引擎
+    🔊 单字与组词朗读均使用音频包，无需联网语音引擎
   </div>
 
   <div class="sitefoot">
@@ -269,19 +268,13 @@ canvas#fw{position:fixed;inset:0;pointer-events:none;z-index:70;display:none}
   </div>
 </div></div>
 
+<!-- ★ 4.0 更新提示弹窗 -->
 <div class="mask" id="mGuide"><div class="modal" style="max-width:480px">
-  <div class="guide-em">🌐</div>
-  <div class="guide-hd">请用「浏览器」打开本游戏</div>
-  <div class="tip" style="margin-top:8px">本游戏的朗读功能依赖浏览器。在聊天软件的内置浏览器里打开，<b style="color:var(--err)">朗读可能失效</b>。</div>
-  <div class="tip" style="margin-top:14px;color:var(--err);font-weight:700">❌ 不要从这些地方直接打开</div>
-  <div class="badapps">
-    <span>QQ</span><span>微信</span><span>钉钉</span><span>抖音</span><span>其他 App 内置浏览器</span>
-  </div>
-  <div class="tip" style="margin-top:14px;color:var(--ok);font-weight:700">✅ 请用这些浏览器打开</div>
-  <div class="goodapps">
-    <span>Chrome</span><span>Edge</span><span>Safari</span><span>系统自带浏览器</span><span>夸克 / UC</span>
-  </div>
-  <div class="tip" style="margin-top:16px;font-size:13px">💡 在 QQ / 微信 里请点右上角「⋯」→「在浏览器中打开」</div>
+  <div class="guide-em">🎉</div>
+  <div class="guide-hd">4.0 版本已优化浏览器兼容性</div>
+  <div class="tip" style="margin-top:8px">本版本已优化对各类浏览器的支持，<b style="color:var(--ok)">几乎不再依赖本地 TTS</b>，朗读更稳定、更清晰。</div>
+  <div class="tip" style="margin-top:12px;color:var(--ink2)">无论使用 Chrome、Edge、Safari、系统自带浏览器，还是 QQ / 微信 内置浏览器，都可以正常朗读 🎧</div>
+  <div class="tip" style="margin-top:16px;font-size:13px">💡 如仍有使用问题，欢迎通过页面底部的反馈邮箱告诉我们</div>
   <div class="mbtns">
     <button class="btn" id="guideOk">我知道了，开始游戏 ▶</button>
   </div>
@@ -320,7 +313,8 @@ const LS = {
   grade: 'hzpy_grade_v2',
   autoClose: 'hzpy_autoclose_v1'
 };
-const CK = { banner: 'hzpy_notice_offline_tts_v1', guide: 'hzpy_guide_browser_v1' };
+/* ★ Cookie 升到 v4，老用户可重新看到新版通知 */
+const CK = { banner: 'hzpy_notice_v4_tts', guide: 'hzpy_guide_v4_browser' };
 const S = {
   grade: localStorage.getItem(LS.grade) || '1',
   pairs: [], cards: [], sel: [], matched: 0,
@@ -407,7 +401,7 @@ function newGame(keepScore){
   S.pairs.forEach(p => { if(used.indexOf(p.c) < 0) used.push(p.c); });
   saveUsed(used);
   render(); renderWrong(); updateHUD();
-  preloadRoundAudio(S.pairs);   /* 立即预下载本局音频 */
+  preloadRoundAudio(S.pairs);   /* 立即预下载本局单字 + 组词音频 */
 }
 
 /* ---------- 渲染 ---------- */
@@ -511,19 +505,19 @@ function showOk(p){
   });
 }
 
-/* ★ 弹窗朗读序列：单字(mp3) → 组词(本地)，带会话令牌防残留 */
+/* ★ 弹窗朗读序列：单字(mp3) → 组词(mp3)，带会话令牌防残留 */
 function playOkSequence(p, onDone){
   const gen = ++audioGen;      /* 新会话，作废之前所有排队任务 */
   stopAudioNow();
-  warmUpTTS();                 /* 顺手预热本地引擎，让组词更跟手 */
   speakSingle(p.c, null, () => {
     if(gen !== audioGen) return;             /* 已被"继续"取消 → 放弃 */
     setTimeout(() => {
       if(gen !== audioGen) return;           /* 再查一次 */
-      speakLocalTTS(p.w, () => {
+      /* ★ 组词也走音频包（缺失自动降级本地 TTS） */
+      speakSingle(p.w, null, () => {
         if(gen === audioGen) onDone && onDone();
-      }, null, gen);
-    }, 100);
+      }, gen, 'word');
+    }, 110);
   }, gen);
 }
 
@@ -585,7 +579,7 @@ function openBook(){
 }
 
 /* ================================================================
- *  朗读系统（★ 会话令牌机制，彻底防残留/叠加）
+ *  朗读系统（会话令牌 + 单字/组词共用音频包）
  * ================================================================ */
 let ttsBarTimer = null, ttsBarHideTimer = null;
 function showTTSBar(){
@@ -604,12 +598,11 @@ function fullTTSBar(){
   ttsBarHideTimer = setTimeout(() => { bar.classList.remove('on'); fill.style.width = '0%'; }, 320);
 }
 
-/* ---------- ★ 会话令牌 ---------- */
-let audioGen = 0;                 /* 每次"全局停止" +1，作废所有排队中的朗读 */
+/* ---------- 会话令牌 ---------- */
+let audioGen = 0;
 let packAudio = null;
 let stopLocalFn = null;
 
-/* 只停当前声音，不动令牌 */
 function stopAudioNow(){
   if(packAudio){
     try { packAudio.pause(); } catch(e){}
@@ -620,33 +613,40 @@ function stopAudioNow(){
   setPlayingCard(null);
   fullTTSBar();
 }
-/* ★ 全局停止：作废所有排队任务（解决"点了继续还在读"） */
+/* ★ 全局停止：作废所有排队任务 */
 function stopAllAudio(){
   audioGen++;
   stopAudioNow();
 }
 
-/* ---------- Blob 音频缓存 ---------- */
+/* ---------- Blob 音频缓存（单字 + 组词） ---------- */
 const packBlob = new Map();
 const packMissing = new Set();
 const packLoading = new Map();
 
-function audioPackUrl(ch){ return 'audio/' + encodeURIComponent(ch) + '.mp3'; }
-function preloadRoundAudio(pairs){ pairs.forEach(p => preloadChar(p.c)); }
-function preloadChar(ch){
-  if(!ch || !isHanzi(ch)) return;
-  if(packBlob.has(ch) || packMissing.has(ch) || packLoading.has(ch)) return;
-  const pr = fetch(audioPackUrl(ch))
+function packKey(kind, text){ return kind + ':' + text; }
+function packUrl(kind, text){
+  return (kind === 'word' ? 'audio/words/' : 'audio/') + encodeURIComponent(text) + '.mp3';
+}
+function preloadRoundAudio(pairs){
+  pairs.forEach(p => { preloadAudio('char', p.c); preloadAudio('word', p.w); });
+}
+function preloadAudio(kind, text){
+  if(!text) return;
+  if(kind === 'char' && !isHanzi(text)) return;
+  const k = packKey(kind, text);
+  if(packBlob.has(k) || packMissing.has(k) || packLoading.has(k)) return;
+  const pr = fetch(packUrl(kind, text))
     .then(r => { if(!r.ok) throw new Error('http-' + r.status); return r.blob(); })
-    .then(blob => { packBlob.set(ch, URL.createObjectURL(blob)); packLoading.delete(ch); })
+    .then(blob => { packBlob.set(k, URL.createObjectURL(blob)); packLoading.delete(k); })
     .catch(err => {
-      if(String(err.message).indexOf('404') >= 0) packMissing.add(ch);
-      packLoading.delete(ch);
+      if(String(err.message).indexOf('404') >= 0) packMissing.add(k);
+      packLoading.delete(k);
     });
-  packLoading.set(ch, pr);
+  packLoading.set(k, pr);
 }
 
-/* ---------- 本地 TTS 预热 ---------- */
+/* ---------- 本地 TTS 预热（仅降级时用） ---------- */
 let ttsWarmed = false;
 function warmUpTTS(){
   if(ttsWarmed || !window.speechSynthesis) return;
@@ -655,37 +655,39 @@ function warmUpTTS(){
     const u = new SpeechSynthesisUtterance('。');
     u.lang = 'zh-CN'; u.volume = 0.01; u.rate = 10;
     if(voice) u.voice = voice;
-    speechSynthesis.speak(u);   /* 让引擎加载，音量几乎为 0 听不到 */
+    speechSynthesis.speak(u);
   }catch(e){}
 }
 
-/* ---------- 单字：播 mp3 ---------- */
-function speakSingle(ch, cardId, onEndSeq, genIn){
-  stopAudioNow();                       /* 停掉旧声音（不动令牌） */
+/* ---------- 音频包朗读（kind = 'char' | 'word'） ---------- */
+function speakSingle(text, cardId, onEndSeq, genIn, kind){
+  kind = kind || 'char';
+  stopAudioNow();
   const gen = (genIn != null) ? genIn : audioGen;
   const done = () => { if(gen === audioGen) onEndSeq && onEndSeq(); };
+  const key = packKey(kind, text);
 
-  const url = packBlob.get(ch);
-  if(url){ playBlob(url, ch, cardId, done, gen); return; }
+  const url = packBlob.get(key);
+  if(url){ playBlob(url, key, cardId, done, gen); return; }
 
   setPlayingCard(cardId); showTTSBar();
-  fetch(audioPackUrl(ch))
+  fetch(packUrl(kind, text))
     .then(r => { if(!r.ok) throw new Error('http-' + r.status); return r.blob(); })
     .then(blob => {
       if(gen !== audioGen) return;
       if(!blob || blob.size < 100) throw new Error('empty');
       const u = URL.createObjectURL(blob);
-      packBlob.set(ch, u);
-      playBlob(u, ch, cardId, done, gen);
+      packBlob.set(key, u);
+      playBlob(u, key, cardId, done, gen);
     })
     .catch(() => {
       if(gen !== audioGen) return;
       setPlayingCard(null); fullTTSBar();
-      speakLocalTTS(ch, done, cardId, gen);
+      speakLocalTTS(text, done, cardId, gen);   /* 缺失 → 降级本地 TTS */
     });
 }
 
-function playBlob(url, ch, cardId, onDone, gen){
+function playBlob(url, key, cardId, onDone, gen){
   if(!packAudio) packAudio = new Audio();
   const a = packAudio;
   a.onended = null; a.onerror = null;
@@ -698,10 +700,10 @@ function playBlob(url, ch, cardId, onDone, gen){
   try { a.pause(); } catch(e){}
   a.src = url;
   a.onended = finish;
-  a.onerror = () => { packMissing.add(ch); finish(); };
+  a.onerror = () => { packMissing.add(key); finish(); };
   setPlayingCard(cardId); showTTSBar();
   const pr = a.play();
-  if(pr && pr.catch) pr.catch(() => { packMissing.add(ch); finish(); });
+  if(pr && pr.catch) pr.catch(() => { packMissing.add(key); finish(); });
   setTimeout(() => {
     if(settled) return; settled = true;
     setPlayingCard(null); fullTTSBar();
@@ -709,7 +711,7 @@ function playBlob(url, ch, cardId, onDone, gen){
   }, 15000);
 }
 
-/* ---------- 组词/整句：本地 TTS（带令牌） ---------- */
+/* ---------- 本地 TTS（降级兜底） ---------- */
 function speakLocalTTS(txt, onEndSeq, cardId, genIn){
   const gen = (genIn != null) ? genIn : audioGen;
   if(!window.speechSynthesis){ if(gen === audioGen && onEndSeq) onEndSeq(); return; }
@@ -817,11 +819,10 @@ function renderGrades(){
   $('#g1tip').classList.toggle('show', S.grade === '1');
 }
 
-/* ============== 横幅通知 ============== */
+/* ============== 横幅通知（★ 4.0 更新通知） ============== */
 const NOTICE_ITEMS = [
-  {em:'📢', t:'在线 TTS 朗读已经下线，请使用「本地 TTS 朗读」！'},
-  {em:'💰', t:'因经费与开发问题，短期内不会重新上线在线朗读。'},
-  {em:'🙏', t:'本站不考虑付费方案，目前正在寻找替代方案，感谢理解！'}
+  {em:'🚀', t:'目前已经推送 4.0 版本更新，基本不再依赖本地 TTS，增强了兼容性。'},
+  {em:'🛠️', t:'如有使用问题，欢迎通过页面底部的反馈邮箱反馈！'}
 ];
 function initNotify(){
   if(ckGet(CK.banner)) return;
@@ -840,7 +841,7 @@ function initNotify(){
   $('#notifyX').addEventListener('click', () => { box.classList.remove('on'); ckSet(CK.banner, '1'); });
 }
 
-/* ============== 首次打开提示 ============== */
+/* ============== 4.0 更新提示弹窗 ============== */
 function initGuide(){
   if(ckGet(CK.guide)) return;
   setTimeout(() => $('#mGuide').classList.add('show'), 320);
@@ -901,7 +902,7 @@ document.addEventListener('keydown', e => { if(e.key === 'Escape') document.quer
 initVoice(); renderGrades(); newGame(false);
 initNotify(); initGuide();
 
-/* 首次交互：预热本地 TTS 引擎（让组词更跟手） */
+/* 首次交互：预热本地 TTS 引擎（仅降级时使用，稳妥起见） */
 ['pointerdown','touchstart','keydown'].forEach(ev => {
   document.addEventListener(ev, function once(){
     document.removeEventListener(ev, once);
