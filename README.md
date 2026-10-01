@@ -281,7 +281,5 @@ const ZKU = {
 
 ---
 
-<p align="center"><i>© 2026 Aile & Leci · 让识字更有趣</i></p>
+<p align="center"><i>© 2026 Aile & Leci · 保留所有权利</i></p>
 ```
-
----
