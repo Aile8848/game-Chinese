@@ -506,31 +506,56 @@ function showOk(p){
   });
 }
 
-/* ★ 弹窗朗读序列：单字 + 组词，Web Audio 下时间轴精确调度，无缝衔接 */
+/* ★ 弹窗朗读：单字立即播；组词在后台解码，就绪后精确排在单字结束点，无缝衔接 */
 function playOkSequence(p, onDone){
   const gen = ++audioGen;
   stopAudioNow();
+  const cKey = packKey('char', p.c), wKey = packKey('word', p.w);
+  const cReady = preloadAudio('char', p.c);
+  const wReady = preloadAudio('word', p.w);
 
-  if(USE_WA){
-    const cKey = packKey('char', p.c), wKey = packKey('word', p.w);
-    const cBuf = decodedBuf.get(cKey), wBuf = decodedBuf.get(wKey);
+  cReady.then(() => {
+    if(gen !== audioGen) return;
     const ctx = ensureCtx();
-    if(cBuf && wBuf && ctx){
-      const t0 = ctx.currentTime + 0.05;
-      const gap = 0.13;   /* 字词之间的自然停顿 */
+    const cBuf = decodedBuf.get(cKey);
+
+    /* ===== Web Audio：单字先播，组词就绪后精确衔接 ===== */
+    if(USE_WA && cBuf && ctx){
+      const t0 = ctx.currentTime + 0.04;
       playBuffer(cBuf, cKey, null, null, gen, t0);
-      playBuffer(wBuf, wKey, null, () => { if(gen === audioGen) onDone && onDone(); }, gen, t0 + cBuf.duration + gap);
+      const charEnd = t0 + cBuf.duration;
+
+      wReady.then(() => {
+        if(gen !== audioGen) return;
+        const wBuf = decodedBuf.get(wKey);
+        if(wBuf){
+          /* 组词就绪 → 排在单字结束 + 0.12s；若已错过则立刻 */
+          const when = Math.max(charEnd + 0.12, ctx.currentTime + 0.02);
+          playBuffer(wBuf, wKey, null, () => { if(gen === audioGen) onDone && onDone(); }, gen, when);
+        }else{
+          /* 组词 mp3 缺失 → 单字结束后降级本地 TTS */
+          const delay = Math.max(0, (charEnd - ctx.currentTime) * 1000);
+          setTimeout(() => {
+            if(gen !== audioGen) return;
+            speakLocalTTS(p.w, () => { if(gen === audioGen) onDone && onDone(); }, null, gen);
+          }, delay);
+        }
+      });
       return;
     }
-  }
 
-  /* 未全部就绪 / 老浏览器 → 串行兜底 */
+    /* ===== 老浏览器 / 无 Web Audio：串行 <audio> 元素 ===== */
+    playSerialOk(p, gen, onDone);
+  });
+}
+
+function playSerialOk(p, gen, onDone){
   speakItem('char', p.c, null, () => {
     if(gen !== audioGen) return;
     setTimeout(() => {
       if(gen !== audioGen) return;
       speakItem('word', p.w, null, () => { if(gen === audioGen) onDone && onDone(); }, gen);
-    }, 90);
+    }, 80);
   }, gen);
 }
 
@@ -701,27 +726,30 @@ function trimBlobs(){
   keys.forEach(k => { try{ URL.revokeObjectURL(blobUrls.get(k)); }catch(e){} blobUrls.delete(k); });
 }
 function preloadAudio(kind, text){
-  if(!text) return;
-  if(kind === 'char' && !isHanzi(text)) return;
+  if(!text) return Promise.resolve(false);
+  if(kind === 'char' && !isHanzi(text)) return Promise.resolve(false);
   const key = packKey(kind, text);
-  if(decodedBuf.has(key) || blobUrls.has(key) || packMissing.has(key) || packLoading.has(key)) return;
+  if(decodedBuf.has(key) || blobUrls.has(key)) return Promise.resolve(true);
+  if(packMissing.has(key)) return Promise.resolve(false);
+  if(packLoading.has(key)) return packLoading.get(key);
 
   const pr = fetch(packUrl(kind, text))
     .then(r => { if(!r.ok) throw new Error('http-' + r.status); return r.arrayBuffer(); })
     .then(ab => {
       if(USE_WA){
         return decodeAB(ensureCtx(), ab).then(buf => {
-          decodedBuf.set(key, buf); trimDecoded(); packLoading.delete(key);
+          decodedBuf.set(key, buf); trimDecoded(); packLoading.delete(key); return true;
         });
       }
       blobUrls.set(key, URL.createObjectURL(new Blob([ab], { type:'audio/mpeg' })));
-      trimBlobs(); packLoading.delete(key);
+      trimBlobs(); packLoading.delete(key); return true;
     })
     .catch(err => {
       if(String(err.message).indexOf('404') >= 0) packMissing.add(key);
-      packLoading.delete(key);
+      packLoading.delete(key); return false;
     });
   packLoading.set(key, pr);
+  return pr;
 }
 
 /* ---------- 本地 TTS 预热（仅最终兜底） ---------- */
@@ -740,7 +768,7 @@ function warmUpTTS(){
 /* ---------- Web Audio：播放 AudioBuffer（可精确调度） ---------- */
 function playBuffer(buf, key, cardId, onDone, gen, when){
   const ctx = ensureCtx();
-  if(!ctx || !buf){ onDone && onDone(); return; }
+  if(!ctx || !buf){ if(gen === audioGen) onDone && onDone(); return; }
   const src = ctx.createBufferSource();
   src.buffer = buf;
   src.connect(ctx.destination);
@@ -749,20 +777,28 @@ function playBuffer(buf, key, cardId, onDone, gen, when){
   const cleanup = () => { const i = activeSources.indexOf(src); if(i >= 0) activeSources.splice(i,1); };
   const finish = () => {
     if(settled) return; settled = true;
+    clearTimeout(showDelay);
     cleanup(); setPlayingCard(null); fullTTSBar();
     if(gen === audioGen) onDone && onDone();
   };
   src.onended = finish;
-  if(cardId) setPlayingCard(cardId);
-  showTTSBar();
-  try { src.start(when != null ? when : 0); }
-  catch(e){ cleanup(); if(gen === audioGen) onDone && onDone(); return; }
+  const startAt = (when != null) ? when : 0;
+  const waitMs = Math.max(0, (startAt - ctx.currentTime) * 1000);
+  /* 光晕/进度条等真正开始播时才显示 */
+  const showDelay = setTimeout(() => {
+    if(settled) return;
+    if(cardId) setPlayingCard(cardId);
+    showTTSBar();
+  }, waitMs);
+  try { src.start(startAt); }
+  catch(e){ clearTimeout(showDelay); cleanup(); if(gen === audioGen) onDone && onDone(); return; }
   const dur = (buf.duration || 3);
   setTimeout(() => {
     if(settled) return; settled = true;
+    clearTimeout(showDelay);
     cleanup(); setPlayingCard(null); fullTTSBar();
     if(gen === audioGen) onDone && onDone();
-  }, dur * 1000 + 3000);
+  }, waitMs + dur * 1000 + 3000);
 }
 
 /* ---------- 老浏览器：<audio> 元素播放 mp3 ---------- */
