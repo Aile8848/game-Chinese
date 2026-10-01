@@ -7,6 +7,7 @@
 
 <p align="center">
   <a href="https://game.leci04.top/"><img src="https://img.shields.io/badge/在线体验-game.leci04.top-FF9E2C?style=for-the-badge" alt="在线体验"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPLv3-blue?style=for-the-badge" alt="License: GPL v3"></a>
 </p>
 
 ---
@@ -19,6 +20,8 @@
 - 📚 **字库来源**：人教部编版小学语文写字表（1—6 年级）+ 地狱难度常用字
 - 🔊 **朗读方式**：全部使用**预生成音频包**，无需联网语音引擎，各设备兼容性高
 - 💾 **零后端**：纯静态，托管在 Cloudflare Pages
+
+> ⚠️ **免责声明**：本项目的字库数据基于人教部编版小学语文教材整理，**仅供学习交流使用**，不得用于商业出版或教材复制。如有侵权，请联系删除。
 
 ---
 
@@ -95,6 +98,7 @@ game-Chinese/
 ├── logo.png                # 网站图标
 ├── reward.webp             # 赞赏码（可选）
 ├── _worker.js              # Cloudflare Pages 边缘函数（域名跳转）
+├── LICENSE                 # GPL-3.0 开源协议
 └── tools/                  # 音频生成脚本（开发用）
     ├── gen-audio.js        # 批量生成单字音频
     ├── gen-word-audio.js   # 批量生成组词音频
@@ -245,7 +249,20 @@ const ZKU = {
 
 ## 📄 开源协议
 
-[MIT License](LICENSE)
+本项目采用 **[GNU General Public License v3.0](LICENSE)** 授权。
+
+这意味着你可以自由地：
+
+- ✅ 使用、修改、分发本项目
+- ✅ 将其用于商业用途
+
+但**必须**遵守以下条件：
+
+- 📢 保留版权声明和本协议
+- 🔓 你**修改后的版本也必须以 GPL 开源**（Copyleft 传染性）
+- 📦 分发时需提供完整源码
+
+> 完整条款见 [LICENSE](LICENSE) 文件，或访问 <https://www.gnu.org/licenses/gpl-3.0.html>。
 
 ---
 
@@ -262,3 +279,9 @@ const ZKU = {
 - 📧 邮箱：`aile-leci@mail.leci04.top`
 - 💛 如果这个项目帮到了你的孩子，欢迎在游戏页面底部**赞助开发**
 
+---
+
+<p align="center"><i>© 2026 Aile & Leci · 让识字更有趣</i></p>
+```
+
+---
