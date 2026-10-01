@@ -133,8 +133,6 @@ body.hell .card.playing{border-color:var(--hell);box-shadow:0 0 0 5px rgba(226,6
 .witem .tag{position:absolute;top:-8px;left:-6px;background:var(--ok);color:#fff;font-size:10px;border-radius:99px;padding:2px 7px;font-weight:700;white-space:nowrap}
 canvas#fw{position:fixed;inset:0;pointer-events:none;z-index:70;display:none}
 .foot{text-align:center;color:#BCA88C;font-size:12px;margin-top:22px;line-height:1.8}
-
-/* ===== 站点页脚：© / 反馈邮箱 / 赞助开发 ===== */
 .sitefoot{margin-top:26px;padding:20px 16px 18px;background:var(--panel);border:2px solid var(--line);border-radius:24px;text-align:center;box-shadow:0 4px 0 #F3E6CC}
 .sitefoot .cr{font-size:13px;font-weight:700;color:var(--ink2);line-height:1.9}
 .sitefoot .cr b{color:var(--ink)}
@@ -151,8 +149,6 @@ canvas#fw{position:fixed;inset:0;pointer-events:none;z-index:70;display:none}
   .sitefoot{padding:16px 12px 15px;border-radius:20px}
   .sitefoot .cr{font-size:12px}
   .sitefoot .btn-sponsor{font-size:14px;padding:10px 22px}
-}
-@media(max-width:640px){
   body{padding:12px 10px 30px}
   h1{font-size:20px} .logo{width:46px;height:46px;font-size:24px;border-radius:16px}
   .panel{grid-template-columns:repeat(3,1fr)} .stat .v{font-size:21px}
@@ -213,7 +209,7 @@ canvas#fw{position:fixed;inset:0;pointer-events:none;z-index:70;display:none}
   <div class="foot">
     字库：人教部编版小学语文 1—6 年级写字表 + 地狱难度常用字<br>
     错题按年级分别保存在本机浏览器，换台设备不互通<br>
-    🔊 单字与组词朗读均使用音频包，无需联网语音引擎
+    🔊 全站朗读均使用音频包，无需联网语音引擎
   </div>
 
   <div class="sitefoot">
@@ -268,13 +264,13 @@ canvas#fw{position:fixed;inset:0;pointer-events:none;z-index:70;display:none}
   </div>
 </div></div>
 
-<!-- ★ 4.0 更新提示弹窗 -->
+<!-- ★ 4.1 更新提示弹窗 -->
 <div class="mask" id="mGuide"><div class="modal" style="max-width:480px">
   <div class="guide-em">🎉</div>
-  <div class="guide-hd">4.0 版本已优化浏览器兼容性</div>
-  <div class="tip" style="margin-top:8px">本版本已优化对各类浏览器的支持，<b style="color:var(--ok)">几乎不再依赖本地 TTS</b>，朗读更稳定、更清晰。</div>
-  <div class="tip" style="margin-top:12px;color:var(--ink2)">无论使用 Chrome、Edge、Safari、系统自带浏览器，还是 QQ / 微信 内置浏览器，都可以正常朗读 🎧</div>
-  <div class="tip" style="margin-top:16px;font-size:13px">💡 如仍有使用问题，欢迎通过页面底部的反馈邮箱告诉我们</div>
+  <div class="guide-hd">4.1 版本已上线</div>
+  <div class="tip" style="margin-top:8px">本次更新<b style="color:var(--ok)">进一步优化了朗读流畅性</b>，字词衔接更自然，几乎无需等待。</div>
+  <div class="tip" style="margin-top:12px;color:var(--ink2)">单字、组词、通关语音全部使用音频包，各浏览器兼容性良好 🎧</div>
+  <div class="tip" style="margin-top:16px;font-size:13px">💡 如有使用问题，欢迎通过页面底部的反馈邮箱告诉我们</div>
   <div class="mbtns">
     <button class="btn" id="guideOk">我知道了，开始游戏 ▶</button>
   </div>
@@ -313,8 +309,13 @@ const LS = {
   grade: 'hzpy_grade_v2',
   autoClose: 'hzpy_autoclose_v1'
 };
-/* ★ Cookie 升到 v4，老用户可重新看到新版通知 */
-const CK = { banner: 'hzpy_notice_v4_tts', guide: 'hzpy_guide_v4_browser' };
+/* ★ Cookie 升到 v5，老用户可重新看到新版通知 */
+const CK = { banner: 'hzpy_notice_v5_tts', guide: 'hzpy_guide_v5_browser' };
+
+/* ★ 通关语音文案（音频包文件名，位于 audio/words/） */
+const PHRASE_WIN_OK    = '全部完成真棒';       /* 有错字时 */
+const PHRASE_WIN_PERFECT = '太厉害了全部答对';  /* 全对时 */
+
 const S = {
   grade: localStorage.getItem(LS.grade) || '1',
   pairs: [], cards: [], sel: [], matched: 0,
@@ -445,7 +446,7 @@ function onTap(id){
   if(i >= 0){ S.sel.splice(i,1); el(id).classList.remove('sel'); return; }
   if(S.sel.length >= 2) return;
   S.sel.push(id); el(id).classList.add('sel');
-  if(S.grade === '1' && c.type === 'h') speakSingle(c.txt, id);
+  if(S.grade === '1' && c.type === 'h') speakItem('char', c.txt, id);
   if(S.sel.length === 2) judge();
 }
 
@@ -505,19 +506,31 @@ function showOk(p){
   });
 }
 
-/* ★ 弹窗朗读序列：单字(mp3) → 组词(mp3)，带会话令牌防残留 */
+/* ★ 弹窗朗读序列：单字 + 组词，Web Audio 下时间轴精确调度，无缝衔接 */
 function playOkSequence(p, onDone){
-  const gen = ++audioGen;      /* 新会话，作废之前所有排队任务 */
+  const gen = ++audioGen;
   stopAudioNow();
-  speakSingle(p.c, null, () => {
-    if(gen !== audioGen) return;             /* 已被"继续"取消 → 放弃 */
+
+  if(USE_WA){
+    const cKey = packKey('char', p.c), wKey = packKey('word', p.w);
+    const cBuf = decodedBuf.get(cKey), wBuf = decodedBuf.get(wKey);
+    const ctx = ensureCtx();
+    if(cBuf && wBuf && ctx){
+      const t0 = ctx.currentTime + 0.05;
+      const gap = 0.13;   /* 字词之间的自然停顿 */
+      playBuffer(cBuf, cKey, null, null, gen, t0);
+      playBuffer(wBuf, wKey, null, () => { if(gen === audioGen) onDone && onDone(); }, gen, t0 + cBuf.duration + gap);
+      return;
+    }
+  }
+
+  /* 未全部就绪 / 老浏览器 → 串行兜底 */
+  speakItem('char', p.c, null, () => {
+    if(gen !== audioGen) return;
     setTimeout(() => {
-      if(gen !== audioGen) return;           /* 再查一次 */
-      /* ★ 组词也走音频包（缺失自动降级本地 TTS） */
-      speakSingle(p.w, null, () => {
-        if(gen === audioGen) onDone && onDone();
-      }, gen, 'word');
-    }, 110);
+      if(gen !== audioGen) return;
+      speakItem('word', p.w, null, () => { if(gen === audioGen) onDone && onDone(); }, gen);
+    }, 90);
   }, gen);
 }
 
@@ -547,7 +560,8 @@ function win(){
     : '<div style="font-size:15px;color:var(--ok)">全对！一个都没错，厉害！</div>';
   $('#mWin').classList.add('show');
   stopAllAudio();
-  speakLocalTTS(S.wrong.length ? '全部完成，真棒' : '太厉害了，全部答对');
+  /* ★ 通关语音也走音频包（缺失自动降级本地 TTS） */
+  speakItem('word', S.wrong.length ? PHRASE_WIN_OK : PHRASE_WIN_PERFECT, null, null, audioGen);
   fireworks();
 }
 
@@ -579,8 +593,13 @@ function openBook(){
 }
 
 /* ================================================================
- *  朗读系统（会话令牌 + 单字/组词共用音频包）
+ *  朗读系统
+ *  • 支持 Web Audio → 预解码 + 时间轴精确调度（零延迟、无缝）
+ *  • 不支持 Web Audio（老浏览器）→ <audio> 元素播 mp3（仍是音频包）
+ *  • mp3 缺失 → 降级本地 TTS（最后兜底）
  * ================================================================ */
+
+/* ---------- 进度条 ---------- */
 let ttsBarTimer = null, ttsBarHideTimer = null;
 function showTTSBar(){
   const bar = $('#ttsBar'), fill = $('#ttsBarI');
@@ -598,29 +617,63 @@ function fullTTSBar(){
   ttsBarHideTimer = setTimeout(() => { bar.classList.remove('on'); fill.style.width = '0%'; }, 320);
 }
 
+/* ---------- 环境 ---------- */
+const USE_WA = !!(window.AudioContext || window.webkitAudioContext);
+let audioCtx = null;
+function ensureCtx(){
+  if(!USE_WA) return null;
+  if(!audioCtx){
+    try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }catch(e){ return null; }
+  }
+  if(audioCtx.state === 'suspended'){ try { audioCtx.resume(); } catch(e){} }
+  return audioCtx;
+}
+/* iOS：首次交互必须解锁 */
+function unlockAudioCtx(){
+  const ctx = ensureCtx();
+  if(!ctx) return;
+  try{
+    const b = ctx.createBuffer(1, 1, 22050);
+    const s = ctx.createBufferSource();
+    s.buffer = b; s.connect(ctx.destination); s.start(0);
+  }catch(e){}
+}
+/* decodeAudioData 兼容 Promise / 回调 */
+function decodeAB(ctx, ab){
+  return new Promise(function(res, rej){
+    if(!ctx){ rej(new Error('no-ctx')); return; }
+    let done = false;
+    const ok = x => { if(done) return; done = true; res(x); };
+    const no = e => { if(done) return; done = true; rej(e); };
+    try{
+      const p = ctx.decodeAudioData(ab, ok, no);
+      if(p && p.then) p.then(ok).catch(no);
+    }catch(e){ no(e); }
+  });
+}
+
 /* ---------- 会话令牌 ---------- */
 let audioGen = 0;
-let packAudio = null;
 let stopLocalFn = null;
+let activeSources = [];   /* Web Audio sources */
+let activeEls = [];       /* <audio> 元素 */
 
 function stopAudioNow(){
-  if(packAudio){
-    try { packAudio.pause(); } catch(e){}
-    packAudio.onended = null; packAudio.onerror = null; packAudio = null;
-  }
+  activeSources.forEach(s => { try { s.onended = null; s.stop(); } catch(e){} });
+  activeSources = [];
+  activeEls.forEach(a => { try { a.onended = null; a.pause(); a.src = ''; } catch(e){} });
+  activeEls = [];
   if(stopLocalFn){ try { stopLocalFn(); } catch(e){} stopLocalFn = null; }
   else { try { window.speechSynthesis && speechSynthesis.cancel(); } catch(e){} }
   setPlayingCard(null);
   fullTTSBar();
 }
-/* ★ 全局停止：作废所有排队任务 */
-function stopAllAudio(){
-  audioGen++;
-  stopAudioNow();
-}
+function stopAllAudio(){ audioGen++; stopAudioNow(); }
 
-/* ---------- Blob 音频缓存（单字 + 组词） ---------- */
-const packBlob = new Map();
+/* ---------- 音频缓存 ---------- */
+const MAX_CACHE = 400;
+const decodedBuf = new Map();   /* key → AudioBuffer（Web Audio 模式） */
+const blobUrls   = new Map();   /* key → blobURL（老浏览器模式） */
 const packMissing = new Set();
 const packLoading = new Map();
 
@@ -631,22 +684,47 @@ function packUrl(kind, text){
 function preloadRoundAudio(pairs){
   pairs.forEach(p => { preloadAudio('char', p.c); preloadAudio('word', p.w); });
 }
+function trimDecoded(){
+  if(decodedBuf.size <= MAX_CACHE) return;
+  const excess = decodedBuf.size - MAX_CACHE;
+  let i = 0;
+  const keys = [];
+  decodedBuf.forEach((v,k) => { if(i++ < excess) keys.push(k); });
+  keys.forEach(k => decodedBuf.delete(k));
+}
+function trimBlobs(){
+  if(blobUrls.size <= MAX_CACHE) return;
+  const excess = blobUrls.size - MAX_CACHE;
+  let i = 0;
+  const keys = [];
+  blobUrls.forEach((v,k) => { if(i++ < excess) keys.push(k); });
+  keys.forEach(k => { try{ URL.revokeObjectURL(blobUrls.get(k)); }catch(e){} blobUrls.delete(k); });
+}
 function preloadAudio(kind, text){
   if(!text) return;
   if(kind === 'char' && !isHanzi(text)) return;
-  const k = packKey(kind, text);
-  if(packBlob.has(k) || packMissing.has(k) || packLoading.has(k)) return;
+  const key = packKey(kind, text);
+  if(decodedBuf.has(key) || blobUrls.has(key) || packMissing.has(key) || packLoading.has(key)) return;
+
   const pr = fetch(packUrl(kind, text))
-    .then(r => { if(!r.ok) throw new Error('http-' + r.status); return r.blob(); })
-    .then(blob => { packBlob.set(k, URL.createObjectURL(blob)); packLoading.delete(k); })
+    .then(r => { if(!r.ok) throw new Error('http-' + r.status); return r.arrayBuffer(); })
+    .then(ab => {
+      if(USE_WA){
+        return decodeAB(ensureCtx(), ab).then(buf => {
+          decodedBuf.set(key, buf); trimDecoded(); packLoading.delete(key);
+        });
+      }
+      blobUrls.set(key, URL.createObjectURL(new Blob([ab], { type:'audio/mpeg' })));
+      trimBlobs(); packLoading.delete(key);
+    })
     .catch(err => {
-      if(String(err.message).indexOf('404') >= 0) packMissing.add(k);
-      packLoading.delete(k);
+      if(String(err.message).indexOf('404') >= 0) packMissing.add(key);
+      packLoading.delete(key);
     });
-  packLoading.set(k, pr);
+  packLoading.set(key, pr);
 }
 
-/* ---------- 本地 TTS 预热（仅降级时用） ---------- */
+/* ---------- 本地 TTS 预热（仅最终兜底） ---------- */
 let ttsWarmed = false;
 function warmUpTTS(){
   if(ttsWarmed || !window.speechSynthesis) return;
@@ -659,63 +737,106 @@ function warmUpTTS(){
   }catch(e){}
 }
 
-/* ---------- 音频包朗读（kind = 'char' | 'word'） ---------- */
-function speakSingle(text, cardId, onEndSeq, genIn, kind){
+/* ---------- Web Audio：播放 AudioBuffer（可精确调度） ---------- */
+function playBuffer(buf, key, cardId, onDone, gen, when){
+  const ctx = ensureCtx();
+  if(!ctx || !buf){ onDone && onDone(); return; }
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  src.connect(ctx.destination);
+  activeSources.push(src);
+  let settled = false;
+  const cleanup = () => { const i = activeSources.indexOf(src); if(i >= 0) activeSources.splice(i,1); };
+  const finish = () => {
+    if(settled) return; settled = true;
+    cleanup(); setPlayingCard(null); fullTTSBar();
+    if(gen === audioGen) onDone && onDone();
+  };
+  src.onended = finish;
+  if(cardId) setPlayingCard(cardId);
+  showTTSBar();
+  try { src.start(when != null ? when : 0); }
+  catch(e){ cleanup(); if(gen === audioGen) onDone && onDone(); return; }
+  const dur = (buf.duration || 3);
+  setTimeout(() => {
+    if(settled) return; settled = true;
+    cleanup(); setPlayingCard(null); fullTTSBar();
+    if(gen === audioGen) onDone && onDone();
+  }, dur * 1000 + 3000);
+}
+
+/* ---------- 老浏览器：<audio> 元素播放 mp3 ---------- */
+function playElement(url, key, cardId, onDone, gen){
+  const a = new Audio();
+  a.preload = 'auto';
+  activeEls.push(a);
+  let settled = false;
+  const cleanup = () => { const i = activeEls.indexOf(a); if(i >= 0) activeEls.splice(i,1); };
+  const finish = () => {
+    if(settled) return; settled = true;
+    cleanup(); setPlayingCard(null); fullTTSBar();
+    if(gen === audioGen) onDone && onDone();
+  };
+  a.onended = finish;
+  a.onerror = () => { packMissing.add(key); finish(); };
+  a.src = url;
+  if(cardId) setPlayingCard(cardId);
+  showTTSBar();
+  const pr = a.play();
+  if(pr && pr.catch) pr.catch(() => { packMissing.add(key); finish(); });
+  setTimeout(() => { if(!settled){ settled = true; cleanup(); setPlayingCard(null); fullTTSBar(); if(gen === audioGen) onDone && onDone(); } }, 15000);
+}
+
+/* ---------- 统一入口：从音频包朗读一条内容 ---------- */
+function speakItem(kind, text, cardId, onEndSeq, genIn){
   kind = kind || 'char';
   stopAudioNow();
   const gen = (genIn != null) ? genIn : audioGen;
-  const done = () => { if(gen === audioGen) onEndSeq && onEndSeq(); };
   const key = packKey(kind, text);
+  const done = () => { if(gen === audioGen) onEndSeq && onEndSeq(); };
 
-  const url = packBlob.get(key);
-  if(url){ playBlob(url, key, cardId, done, gen); return; }
+  /* 已缓存 → 直接播 */
+  if(USE_WA){
+    const buf = decodedBuf.get(key);
+    if(buf){ playBuffer(buf, key, cardId, done, gen); return; }
+  }else{
+    const u = blobUrls.get(key);
+    if(u){ playElement(u, key, cardId, done, gen); return; }
+  }
 
+  /* 未缓存 → 现下载 */
   setPlayingCard(cardId); showTTSBar();
   fetch(packUrl(kind, text))
-    .then(r => { if(!r.ok) throw new Error('http-' + r.status); return r.blob(); })
-    .then(blob => {
+    .then(r => { if(!r.ok) throw new Error('http-' + r.status); return r.arrayBuffer(); })
+    .then(ab => {
       if(gen !== audioGen) return;
-      if(!blob || blob.size < 100) throw new Error('empty');
-      const u = URL.createObjectURL(blob);
-      packBlob.set(key, u);
-      playBlob(u, key, cardId, done, gen);
+      if(USE_WA){
+        return decodeAB(ensureCtx(), ab).then(buf => {
+          if(!buf) throw new Error('decode-fail');
+          decodedBuf.set(key, buf); trimDecoded();
+          if(gen !== audioGen) return;
+          playBuffer(buf, key, cardId, done, gen);
+        });
+      }
+      const u = URL.createObjectURL(new Blob([ab], { type:'audio/mpeg' }));
+      blobUrls.set(key, u); trimBlobs();
+      playElement(u, key, cardId, done, gen);
     })
     .catch(() => {
       if(gen !== audioGen) return;
       setPlayingCard(null); fullTTSBar();
-      speakLocalTTS(text, done, cardId, gen);   /* 缺失 → 降级本地 TTS */
+      speakLocalTTS(text, done, cardId, gen);
     });
 }
 
-function playBlob(url, key, cardId, onDone, gen){
-  if(!packAudio) packAudio = new Audio();
-  const a = packAudio;
-  a.onended = null; a.onerror = null;
-  let settled = false;
-  const finish = () => {
-    if(settled) return; settled = true;
-    setPlayingCard(null); fullTTSBar();
-    if(gen === audioGen) onDone && onDone();
-  };
-  try { a.pause(); } catch(e){}
-  a.src = url;
-  a.onended = finish;
-  a.onerror = () => { packMissing.add(key); finish(); };
-  setPlayingCard(cardId); showTTSBar();
-  const pr = a.play();
-  if(pr && pr.catch) pr.catch(() => { packMissing.add(key); finish(); });
-  setTimeout(() => {
-    if(settled) return; settled = true;
-    setPlayingCard(null); fullTTSBar();
-    if(gen === audioGen) onDone && onDone();
-  }, 15000);
-}
-
-/* ---------- 本地 TTS（降级兜底） ---------- */
+/* ---------- 本地 TTS（最终兜底，几乎用不到） ---------- */
 function speakLocalTTS(txt, onEndSeq, cardId, genIn){
   const gen = (genIn != null) ? genIn : audioGen;
   if(!window.speechSynthesis){ if(gen === audioGen && onEndSeq) onEndSeq(); return; }
-  if(packAudio){ try { packAudio.pause(); } catch(e){} packAudio.onended = null; packAudio = null; }
+  activeSources.forEach(s => { try { s.onended = null; s.stop(); } catch(e){} });
+  activeSources = [];
+  activeEls.forEach(a => { try { a.onended = null; a.pause(); } catch(e){} });
+  activeEls = [];
   try { speechSynthesis.cancel(); } catch(e){}
   try{
     showTTSBar();
@@ -819,10 +940,10 @@ function renderGrades(){
   $('#g1tip').classList.toggle('show', S.grade === '1');
 }
 
-/* ============== 横幅通知（★ 4.0 更新通知） ============== */
+/* ============== 横幅通知（★ 4.1 更新通知） ============== */
 const NOTICE_ITEMS = [
-  {em:'🚀', t:'目前已经推送 4.0 版本更新，基本不再依赖本地 TTS，增强了兼容性。'},
-  {em:'🛠️', t:'如有使用问题，欢迎通过页面底部的反馈邮箱反馈！'}
+  {em:'🚀', t:'4.1 版本已经上线，进一步优化了朗读流畅性！'},
+  {em:'🛠️', t:'如有使用问题，欢迎通过页面底部的反馈邮箱反馈。'}
 ];
 function initNotify(){
   if(ckGet(CK.banner)) return;
@@ -841,7 +962,7 @@ function initNotify(){
   $('#notifyX').addEventListener('click', () => { box.classList.remove('on'); ckSet(CK.banner, '1'); });
 }
 
-/* ============== 4.0 更新提示弹窗 ============== */
+/* ============== 4.1 更新提示弹窗 ============== */
 function initGuide(){
   if(ckGet(CK.guide)) return;
   setTimeout(() => $('#mGuide').classList.add('show'), 320);
@@ -881,7 +1002,7 @@ $('#askYes').addEventListener('click', () => {
   saveBook({}); $('#mAsk').classList.remove('show'); openBook(); renderGrades();
   toast('已清空','错字库空空如也');
 });
-/* ★ 点"继续"：作废令牌，排队中的组词朗读自动放弃 */
+/* ★ 点"继续"：作废令牌，排队中的朗读自动放弃 */
 $('#okNext').addEventListener('click', () => { stopAllAudio(); closeOk(); });
 $('#okSpeak').addEventListener('click', () => {
   const p = {c: $('#okC').textContent, w: $('#okW').textContent};
@@ -902,10 +1023,11 @@ document.addEventListener('keydown', e => { if(e.key === 'Escape') document.quer
 initVoice(); renderGrades(); newGame(false);
 initNotify(); initGuide();
 
-/* 首次交互：预热本地 TTS 引擎（仅降级时使用，稳妥起见） */
+/* 首次交互：解锁 Web Audio（iOS 必需）+ 预热本地 TTS（最终兜底） */
 ['pointerdown','touchstart','keydown'].forEach(ev => {
   document.addEventListener(ev, function once(){
     document.removeEventListener(ev, once);
+    unlockAudioCtx();
     setTimeout(warmUpTTS, 60);
   }, { passive:true });
 });
