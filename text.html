@@ -744,7 +744,7 @@ function trimDecoded(){
   const excess = decodedBuf.size - MAX_CACHE;
   let i = 0;
   const keys = [];
-  decodedBuf.forEach((v,k) => { if(i++ < excess keys.push(k); });
+  decodedBuf.forEach((v,k) => { if(i++ < excess) keys.push(k); });
   keys.forEach(k => decodedBuf.delete(k));
 }
 function trimBlobs(){
